@@ -9,15 +9,21 @@
  * from here — it never decides the route itself.
  */
 
-/** Keyword → intent map used by detectIntent(). Order matters: first match wins. */
+/**
+ * Keyword → intent map used by detectIntent(). Order matters: first match
+ * wins, so specific facility types are checked before "info_desk" — its
+ * keywords ("help", "assistance") are generic enough to appear inside an
+ * otherwise-specific query (e.g. "can you help me find my seat") and would
+ * otherwise shadow the real intent if checked first.
+ */
 const INTENT_KEYWORDS = [
   ["restroom", ["restroom", "bathroom", "toilet", "washroom", "baño", "toilette"]],
   ["elevator", ["elevator", "lift", "stairs", "escalator", "ramp"]],
   ["medical", ["medical", "doctor", "nurse", "first aid", "injury", "hurt", "sick", "paramedic"]],
   ["quiet_room", ["quiet", "sensory", "overwhelmed", "calm", "break room", "meltdown", "anxious"]],
-  ["info_desk", ["help", "information", "info desk", "guest services", "lost", "assistance"]],
-  ["concession", ["food", "drink", "concession", "snack", "water", "hungry", "thirsty"]],
   ["seat", ["seat", "section", "my seat", "find my seat"]],
+  ["concession", ["food", "drink", "concession", "snack", "water", "hungry", "thirsty"]],
+  ["info_desk", ["help", "information", "info desk", "guest services", "lost", "assistance"]],
 ];
 
 /**
