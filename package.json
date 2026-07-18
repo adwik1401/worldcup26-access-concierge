@@ -1,0 +1,19 @@
+{
+  "name": "worldcup26-access-concierge",
+  "version": "1.0.0",
+  "description": "GenAI fan accessibility & navigation concierge for FIFA World Cup 2026 (Promptwars Challenge 4)",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test tests/"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
