@@ -1,0 +1,143 @@
+# Liberty Field Access Concierge
+
+A GenAI accessibility & navigation concierge for fans at the FIFA World Cup 2026 — built for
+**Promptwars Challenge 4**.
+
+## Chosen vertical
+
+**Fan Accessibility & Navigation Concierge.** The persona is a fan — specifically one with an
+accessibility need (mobility, visual, hearing, or sensory) and/or a non-English speaker — who
+needs fast, dependable, in-the-moment answers inside the venue: *where's the nearest accessible
+restroom, how do I get to my seat, is there somewhere quiet I can go, where can I get food.*
+
+Why this focus, not the other seven domains in the brief: FIFA has already committed, for 2026, to
+dedicated mobility-assistance staff at every venue and first-ever sign-language interpretation for
+every match — genuinely good, official accessibility investments. But a fan still hits moments
+those services aren't immediately at hand: staff are busy elsewhere, the fan doesn't speak the
+staff's language, or it's 2am and they just need an answer fast. A 75,000-seat stadium is
+typically reported to have only around 200 wheelchair-accessible seats (~0.26% of capacity) —
+fans holding those scarce accessible tickets have far less slack if something goes wrong mid-event.
+This concierge is the self-service, always-on layer for that gap. **It complements FIFA's official
+accessibility commitments — it does not replace human escorts or sign-language interpretation.**
+
+## Approach and logic
+
+The core design decision is a **two-layer architecture**, so the actual routing *decision* is
+deterministic and testable, and the LLM's only job is composing natural language on top of it:
+
+1. **Deterministic routing engine** (`server/engine/routingEngine.js`) — pure functions, no LLM,
+   no I/O. Given a fan's profile (accessibility needs, seat section) and a free-text query, it:
+   - detects intent via keyword matching (restroom / elevator / medical / quiet room / seat /
+     concession / info desk),
+   - filters out any point of interest that doesn't meet the stated accessibility need (e.g. a
+     stairs-only restroom is excluded outright for a wheelchair profile, not just deprioritized),
+   - scores the remaining candidates by distance *and* live crowd density, weighting the crowd
+     penalty more heavily for mobility/sensory profiles (moving through a packed concourse costs
+     more for those fans),
+   - and returns a structured result: the chosen recommendation, up to two alternatives, and a
+     list of **applied rules** — the actual reasons behind the decision (e.g. *"Gate D is closest
+     to your section, but isn't step-free — routed to Gate A instead"*).
+
+   This is the "logical decision making based on user context" the challenge asks for, and it's
+   why the engine is unit-tested independently of any GenAI call — a safety-relevant routing
+   decision shouldn't depend on a model call succeeding.
+
+2. **GenAI composition layer** (`server/engine/llmClient.js`) — takes that structured result plus
+   the fan's original question and *language*, and asks an LLM (via **OpenRouter**) to phrase it
+   as a warm, concise reply in the fan's own language, grounded strictly in the JSON it's given
+   (the prompt explicitly forbids inventing facilities or data). OpenRouter is called with the
+   platform's built-in `fetch` — no vendor SDK — so the model is swappable via an env var with no
+   code change.
+
+   **If no `OPENROUTER_API_KEY` is configured, the app doesn't degrade to an error — it falls back
+   to a fully offline, deterministic multilingual composer** (`server/engine/i18n.js`) that builds
+   the same reply directly from the structured data, in English, Spanish, French, Portuguese, or
+   Arabic. The offline layer isn't a stub; it's what every automated test in this repo exercises,
+   so the whole app is provably functional without any API key.
+
+A demo-only "simulate crowd conditions" toggle in the UI stands in for a live density feed — switch
+it and watch the concierge's recommendation (and its high-density warning) change in real time.
+
+## How the solution works
+
+**Requirements:** Node.js ≥ 18 (developed and tested on Node 24).
+
+```bash
+npm install
+cp .env.example .env   # optional — the app runs fully without this
+npm start
+```
+
+Then open `http://localhost:3000`. To run the automated tests (zero network, zero API key
+required):
+
+```bash
+npm test
+```
+
+**To enable live GenAI responses** instead of the offline fallback, get a free key at
+[openrouter.ai/keys](https://openrouter.ai/keys) and set `OPENROUTER_API_KEY` in `.env`.
+`OPENROUTER_MODEL` is configurable (defaults to a fast, inexpensive Claude Haiku-class model on
+OpenRouter).
+
+### Feature walkthrough
+
+- Pick a language, your seat section, and any accessibility needs in the left panel.
+- Ask a question in plain language — try *"where is the nearest restroom"*, *"find my seat"*,
+  *"is there a quiet room"*, or *"where can I get food"*.
+- Every reply includes an expandable **"Why this recommendation"** panel showing the actual rules
+  the engine applied — this is deliberately not hidden, both as a transparency/accessibility
+  feature and as the clearest evidence of context-aware decision making.
+- Toggle **high contrast** and text size (**A− / A+**) in the header — persisted across visits.
+- Switch **crowd scenarios** in the left panel and re-ask the same question to see the
+  recommendation change.
+
+### Architecture at a glance
+
+```
+server/
+  app.js              Express app assembly (no listener — importable by tests)
+  index.js            entry point: creates the app, starts listening
+  routes/
+    concierge.js       POST /api/concierge — validates input, runs the engine, composes a reply
+    venue.js            GET /api/venue, GET/POST /api/scenario(s)
+  engine/
+    routingEngine.js    deterministic routing/decision logic (pure functions)
+    llmClient.js         OpenRouter call + graceful fallback to the offline composer
+    i18n.js               offline multilingual reply composer (en/es/fr/pt/ar)
+    crowdState.js          in-memory "current crowd scenario" state (demo toggle)
+  data/
+    venue.json           fictional venue: gates, sections, accessibility-tagged points of interest
+    crowdScenarios.json    three named crowd-density scenarios
+public/                 vanilla HTML/CSS/JS frontend — no framework, no build step
+tests/                  node:test suite (20 tests) for the engine and the API routes
+```
+
+## Assumptions
+
+- **The venue is fictional** ("Liberty Field") — an illustrative composite, not a schematic of any
+  real FIFA World Cup 2026 stadium. Distances are described qualitatively ("very close by") rather
+  than in a fabricated unit, since the coordinate grid isn't calibrated to a real floor plan.
+- **Crowd data is simulated**, toggled via a demo control, not ingested from live sensors.
+- This tool is explicitly a **complement to FIFA's official 2026 accessibility commitments**
+  (mobility-escort staff, all-match sign-language interpretation) — not a replacement for them.
+- **Plain Node.js + Express + vanilla frontend**, chosen over a framework/build-step stack (e.g.
+  React) to minimize dependency surface and setup friction, and to keep the repository small and
+  auditable — a deliberate simplicity trade-off given the competition's size and time constraints.
+- **The app is fully functional with zero API key** (offline multilingual fallback); an
+  `OPENROUTER_API_KEY` only upgrades response naturalness, it doesn't unlock functionality.
+- Language set (English, Spanish, French, Portuguese, Arabic) was chosen to reflect the three 2026
+  host nations (USA, Mexico, Canada) plus broad additional reach, not to be exhaustive.
+- **Future work, out of scope for this submission:** live-camera-based obstacle detection for
+  low-vision/wheelchair users (inspired by hackathon projects like "Sightmate") was considered but
+  excluded — a camera/video pipeline is disproportionate complexity for this submission's size and
+  time budget.
+
+## Originality
+
+Built from scratch for this challenge. No code was forked, cloned, or scaffolded from any existing
+repository.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
