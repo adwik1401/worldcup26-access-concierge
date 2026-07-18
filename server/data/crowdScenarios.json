@@ -1,0 +1,17 @@
+{
+  "normal": {
+    "label": "Normal flow",
+    "description": "Baseline pre-kickoff conditions across the concourse.",
+    "zones": { "zone-a": 0.3, "zone-b": 0.35, "zone-c": 0.3, "zone-d": 0.25 }
+  },
+  "gate-b-surge": {
+    "label": "Gate B surge",
+    "description": "Heavy inbound crowd concentrated at Gate B ahead of kickoff.",
+    "zones": { "zone-a": 0.4, "zone-b": 0.92, "zone-c": 0.45, "zone-d": 0.3 }
+  },
+  "halftime-rush": {
+    "label": "Half-time concession rush",
+    "description": "Concourse-wide surge as fans move to concessions and restrooms at half-time.",
+    "zones": { "zone-a": 0.75, "zone-b": 0.8, "zone-c": 0.78, "zone-d": 0.7 }
+  }
+}
