@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Liberty Field Access Concierge — FIFA World Cup 2026 demo</title>
+  <meta name="description" content="GenAI fan accessibility & navigation concierge demo — Promptwars Challenge 4" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="site-header__title">
+      <h1>Liberty Field Access Concierge</h1>
+      <p class="subtitle">A GenAI accessibility &amp; navigation assistant for FIFA World Cup 2026 fans — Promptwars Challenge 4 demo.</p>
+    </div>
+    <div class="a11y-toggles" role="group" aria-label="Display settings">
+      <button type="button" id="contrast-toggle" aria-pressed="false">High contrast</button>
+      <button type="button" id="font-decrease" aria-label="Decrease text size">A−</button>
+      <button type="button" id="font-increase" aria-label="Increase text size">A+</button>
+    </div>
+  </header>
+
+  <main id="main-content" class="layout">
+    <aside class="panel" aria-labelledby="profile-heading">
+      <h2 id="profile-heading">Your profile</h2>
+      <form id="profile-form">
+        <div class="field">
+          <label for="language-select">Language</label>
+          <select id="language-select" name="language">
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="pt">Português</option>
+            <option value="ar">العربية</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="section-select">Your seat section</label>
+          <select id="section-select" name="sectionId">
+            <option value="">Loading sections…</option>
+          </select>
+        </div>
+
+        <fieldset class="field">
+          <legend>Accessibility needs</legend>
+          <label class="checkbox"><input type="checkbox" name="accessibilityNeeds" value="mobility" /> Mobility / wheelchair</label>
+          <label class="checkbox"><input type="checkbox" name="accessibilityNeeds" value="visualImpairment" /> Visual impairment</label>
+          <label class="checkbox"><input type="checkbox" name="accessibilityNeeds" value="hearingImpairment" /> Hearing impairment</label>
+          <label class="checkbox"><input type="checkbox" name="accessibilityNeeds" value="sensorySensitivity" /> Sensory sensitivity</label>
+        </fieldset>
+      </form>
+
+      <h2 id="scenario-heading">Demo: simulate crowd conditions</h2>
+      <p class="hint">Stands in for a live density feed — switch it to see the concierge's recommendation change in real time.</p>
+      <div id="scenario-buttons" class="scenario-buttons" role="group" aria-labelledby="scenario-heading">
+        <p>Loading scenarios…</p>
+      </div>
+    </aside>
+
+    <section class="panel chat-panel" aria-labelledby="chat-heading">
+      <h2 id="chat-heading">Ask the concierge</h2>
+      <p class="hint">Try: "where is the nearest restroom", "find my seat", "is there a quiet room", "where can I get food".</p>
+
+      <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-relevant="additions"></div>
+
+      <form id="query-form" class="query-form">
+        <label for="query-input" class="visually-hidden">Your question</label>
+        <input id="query-input" name="query" type="text" maxlength="300" required
+               placeholder="Ask a question about the venue…" autocomplete="off" />
+        <button type="submit">Ask</button>
+      </form>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>
+      Demo venue and crowd data are fictional / illustrative — not a schematic of any real
+      FIFA World Cup 2026 stadium. This concierge complements FIFA's own official 2026
+      accessibility commitments (mobility-escort staff, all-match sign-language interpretation);
+      it does not replace them.
+    </p>
+  </footer>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
