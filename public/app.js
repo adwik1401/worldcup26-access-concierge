@@ -22,7 +22,9 @@ loadVenue();
 loadScenarios();
 
 languageSelect.addEventListener("change", () => {
-  document.documentElement.dir = RTL_LANGUAGES.has(languageSelect.value) ? "rtl" : "ltr";
+  // Scoped to the chat log only — flipping `dir` on <html> would mirror the
+  // entire page layout (sidebar, grid columns), not just the conversation.
+  chatLog.dir = RTL_LANGUAGES.has(languageSelect.value) ? "rtl" : "ltr";
 });
 
 queryForm.addEventListener("submit", handleQuerySubmit);

@@ -291,8 +291,9 @@ button:hover {
   font-size: 0.85rem;
 }
 
-/* Right-to-left languages (Arabic) */
-html[dir="rtl"] .message--user {
+/* Right-to-left languages (Arabic) — scoped to the chat log, not the whole
+   page, so switching languages doesn't mirror the sidebar/header layout. */
+#chat-log[dir="rtl"] .message--user {
   margin-left: 0;
   margin-right: auto;
   text-align: left;
