@@ -64,6 +64,12 @@
       <h2 id="chat-heading">Ask the concierge</h2>
       <p class="hint">Try: "where is the nearest restroom", "find my seat", "is there a quiet room", "where can I get food".</p>
 
+      <div class="map-wrap" aria-hidden="true">
+        <p class="map-caption">Live venue map — markers shade green (clear) to red (busy) with current crowd density; your last route is highlighted. Straight-line indicator, not a walking path.</p>
+        <svg id="venue-map" class="venue-map"></svg>
+        <p class="map-legend">R restroom · E elevator · M medical · Q quiet room · I info desk · C concession · square = gate, dot = section/facility</p>
+      </div>
+
       <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-relevant="additions"></div>
 
       <form id="query-form" class="query-form">

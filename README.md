@@ -91,6 +91,26 @@ OpenRouter).
 - Toggle **high contrast** and text size (**A− / A+**) in the header — persisted across visits.
 - Switch **crowd scenarios** in the left panel and re-ask the same question to see the
   recommendation change.
+- A **live venue map** sits above the chat: every gate, section, and point of interest, shaded
+  green→red by current crowd density, with your last route drawn as a dashed line and the
+  destination pulsing. It's a direct visualization of the same coordinate data and crowd state the
+  routing engine scores against — not a separate system, so it can never show something the text
+  reply doesn't already say. See *Why not AR / live camera navigation* below for why this is a 2D
+  map rather than a camera view.
+
+### Why not AR / live camera navigation
+
+This was considered and deliberately scoped out. Liberty Field is a **fictional** venue — there is
+no real physical space to point a camera at, so true computer vision (detecting real doorways,
+signage, obstacles) has nothing to ground itself in. The two ways to still make "AR" honest here
+both have real costs: marker-based AR would need printed markers taped up in a real room (friction
+for anyone testing this, including judges), and a compass-style camera overlay (device heading +
+a known start point, no scene understanding) only works meaningfully on a phone — most desktop
+browsers have no magnetometer, and this submission is meant to be reviewable via `npm start` on a
+laptop. The 2D map delivers the actual ask — *live, visual, direction instead of just chat* — on
+any device, with no camera/motion permissions, and it's honest about what it is: a straight-line
+indicator between two points, not a turn-by-turn walking path (the same simplification the routing
+engine's own distance scoring already makes).
 
 ### Architecture at a glance
 
@@ -110,7 +130,7 @@ server/
     venue.json           fictional venue: gates, sections, accessibility-tagged points of interest
     crowdScenarios.json    three named crowd-density scenarios
 public/                 vanilla HTML/CSS/JS frontend — no framework, no build step
-tests/                  node:test suite (20 tests) for the engine and the API routes
+tests/                  node:test suite (21 tests) for the engine and the API routes
 ```
 
 ## Assumptions

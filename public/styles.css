@@ -214,6 +214,68 @@ button:hover {
   min-height: 420px;
 }
 
+.map-wrap {
+  margin-bottom: 0.75rem;
+}
+
+.map-caption {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.venue-map {
+  width: 100%;
+  height: 220px;
+  display: block;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.map-label {
+  font-size: 1.5px;
+  fill: var(--color-text);
+  font-family: system-ui, sans-serif;
+  pointer-events: none;
+}
+
+.map-legend {
+  margin: 0.35rem 0 0.75rem;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+.map-route-line {
+  stroke: var(--color-accent);
+  stroke-width: 0.4;
+  stroke-dasharray: 1.2 1;
+  fill: none;
+}
+
+.map-origin {
+  fill: var(--color-accent);
+  stroke: var(--color-surface);
+  stroke-width: 0.3;
+}
+
+.map-destination-ring {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 0.5;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .map-destination-ring {
+    animation: map-pulse 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes map-pulse {
+  0%, 100% { r: 2.2; opacity: 1; }
+  50% { r: 3.4; opacity: 0.4; }
+}
+
 .chat-log {
   flex: 1;
   overflow-y: auto;

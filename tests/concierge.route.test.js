@@ -28,12 +28,34 @@ async function postJson(path, body) {
   return { status: res.status, body: await res.json() };
 }
 
-test("GET /api/venue returns gates and sections", async () => {
+test("GET /api/venue returns gates, sections, and points of interest with map coordinates", async () => {
   const res = await fetch(`${baseUrl}/api/venue`);
   const data = await res.json();
   assert.equal(res.status, 200);
   assert.ok(Array.isArray(data.gates) && data.gates.length > 0);
   assert.ok(Array.isArray(data.sections) && data.sections.length > 0);
+  assert.ok(Array.isArray(data.pointsOfInterest) && data.pointsOfInterest.length > 0);
+
+  // The frontend map renders every node from x/y/zone — make sure the API
+  // actually exposes them (a prior version stripped these for the selector
+  // dropdowns, which would silently break the map with no visible error).
+  for (const node of [...data.gates, ...data.sections, ...data.pointsOfInterest]) {
+    assert.equal(typeof node.x, "number");
+    assert.equal(typeof node.y, "number");
+    assert.equal(typeof node.zone, "string");
+  }
+});
+
+test("GET /api/scenarios includes the current scenario's zone densities", async () => {
+  await postJson("/api/scenario", { key: "gate-b-surge" });
+  const res = await fetch(`${baseUrl}/api/scenarios`);
+  const data = await res.json();
+
+  assert.equal(res.status, 200);
+  assert.equal(data.current, "gate-b-surge");
+  assert.equal(data.zones["zone-b"], 0.92);
+
+  await postJson("/api/scenario", { key: "normal" }); // reset for other tests
 });
 
 test("GET /api/scenarios lists scenarios with a current key", async () => {
