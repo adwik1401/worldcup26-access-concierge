@@ -91,12 +91,13 @@ OpenRouter).
 - Toggle **high contrast** and text size (**A− / A+**) in the header — persisted across visits.
 - Switch **crowd scenarios** in the left panel and re-ask the same question to see the
   recommendation change.
-- A **live venue map** sits above the chat: every gate, section, and point of interest, shaded
-  green→red by current crowd density, with your last route drawn as a dashed line and the
-  destination pulsing. It's a direct visualization of the same coordinate data and crowd state the
-  routing engine scores against — not a separate system, so it can never show something the text
-  reply doesn't already say. See *Why not AR / live camera navigation* below for why this is a 2D
-  map rather than a camera view.
+- A **live venue map** sits above the chat: each zone tints from clear to busy by its current
+  crowd density (the fastest way to read the venue at a glance), with every gate and point of
+  interest shown as a small hand-drawn icon, and your last route drawn as a dashed line with an
+  arrowhead from a "you are here" pin to a pulsing destination ring. It's a direct visualization of
+  the same coordinate data and crowd state the routing engine scores against — not a separate
+  system, so it can never show something the text reply doesn't already say. See *Why not AR /
+  live camera navigation* below for why this is a 2D map rather than a camera view.
 
 ### Why not AR / live camera navigation
 
@@ -152,6 +153,12 @@ tests/                  node:test suite (21 tests) for the engine and the API ro
   low-vision/wheelchair users (inspired by hackathon projects like "Sightmate") was considered but
   excluded — a camera/video pipeline is disproportionate complexity for this submission's size and
   time budget.
+- **Typography loads from Google Fonts over CDN** (Space Grotesk, Plus Jakarta Sans, JetBrains
+  Mono) — the one external network request the frontend makes besides the API itself. It's a
+  `<link>` tag, not an npm dependency, so it doesn't affect repo size or the no-build-step setup;
+  if it fails to load (e.g. offline), the browser falls back to the specified system font stack and
+  the app remains fully usable. All icons are hand-authored inline SVG — no icon library
+  dependency.
 
 ## Originality
 

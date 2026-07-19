@@ -91,6 +91,7 @@ async function loadVenue() {
     }
 
     renderMap();
+    renderMapLegend();
   } catch (err) {
     sectionSelect.innerHTML = '<option value="">Could not load sections</option>';
   }
@@ -246,10 +247,46 @@ function removeMessage(id) {
 // a turn-by-turn walking path. Marked aria-hidden in the HTML because
 // every fact it conveys is already in the text reply above it — this is
 // a sighted-user convenience layer, not the primary accessible channel.
+//
+// Zone backgrounds are the bounding box of each zone's own member points
+// (padded), not a fabricated architectural boundary — the only shape we
+// can honestly derive from data we actually have.
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const POI_ABBREVIATIONS = { restroom: "R", elevator: "E", medical: "M", quiet_room: "Q", info_desk: "I", concession: "C" };
-const MAP_PADDING = 3;
+const MAP_PADDING = 5;
+const ZONE_PADDING = 3;
+
+// Hand-authored, single-stroke-width icon glyphs (24x24 viewBox) — no icon
+// library dependency, kept visually consistent with the icons used
+// elsewhere in index.html.
+const MARKER_ICON_PARTS = {
+  restroom: [
+    ["circle", { cx: 12, cy: 6, r: 2.3 }],
+    ["path", { d: "M8.3 20 9.7 11.5h4.6L15.7 20M9.3 12.5V8.2h5.4v4.3" }],
+  ],
+  elevator: [["path", { d: "M8 9.5 12 5.5 16 9.5M8 14.5 12 18.5 16 14.5" }]],
+  medical: [["path", { d: "M12 5v14M5 12h14" }]],
+  quiet_room: [["path", { d: "M19.5 14.8A8 8 0 1 1 9.2 4.5a6.5 6.5 0 0 0 10.3 10.3Z" }]],
+  info_desk: [
+    ["circle", { cx: 12, cy: 12, r: 8.5 }],
+    ["path", { d: "M12 11v5.5" }],
+  ],
+  concession: [
+    ["path", { d: "M7 8h10l-1.3 10.2A2 2 0 0 1 13.7 20h-3.4a2 2 0 0 1-2-1.8L7 8Z" }],
+    ["path", { d: "M9.3 5h5.4l.5 3H8.8l.5-3Z" }],
+  ],
+  gate: [["rect", { x: 6.5, y: 3.5, width: 11, height: 17, rx: 1 }]],
+};
+
+const LEGEND_ITEMS = [
+  ["gate", "Gate"],
+  ["restroom", "Restroom"],
+  ["elevator", "Elevator"],
+  ["medical", "Medical"],
+  ["quiet_room", "Quiet room"],
+  ["info_desk", "Info desk"],
+  ["concession", "Concession"],
+];
 
 function svgEl(tag, attrs = {}) {
   const el = document.createElementNS(SVG_NS, tag);
@@ -257,10 +294,19 @@ function svgEl(tag, attrs = {}) {
   return el;
 }
 
-/** Hue-only color scale (green -> red) for a 0..1 crowd density value. */
+/** Hue-only color scale (calm green -> amber -> red) for a 0..1 crowd density value. */
 function densityColor(density) {
-  const hue = Math.max(0, 140 - 140 * (density ?? 0));
-  return `hsl(${hue}, 70%, 45%)`;
+  const hue = Math.max(0, 130 - 130 * (density ?? 0));
+  return `hsl(${hue}, 62%, 42%)`;
+}
+
+/** A small nested <svg> (own 24x24 viewBox) so icon geometry never has to fight the map's grid coordinate space. */
+function buildMarkerIcon(type, cx, cy, size) {
+  const nested = svgEl("svg", { x: cx - size / 2, y: cy - size / 2, width: size, height: size, viewBox: "0 0 24 24" });
+  const group = svgEl("g", { fill: "none", stroke: "#fff", "stroke-width": 2.1, "stroke-linecap": "round", "stroke-linejoin": "round" });
+  for (const [tag, attrs] of MARKER_ICON_PARTS[type] || []) group.appendChild(svgEl(tag, attrs));
+  nested.appendChild(group);
+  return nested;
 }
 
 function computeViewBox(venue) {
@@ -274,11 +320,40 @@ function computeViewBox(venue) {
   return `${minX} ${minY} ${width} ${height}`;
 }
 
+/** Bounding box of each zone's own points — the only zone "shape" derivable from real data, not an invented floor plan. */
+function computeZoneRegions(venue) {
+  const zones = {};
+  for (const p of [...venue.gates, ...venue.sections, ...venue.pointsOfInterest]) {
+    const z = zones[p.zone] || (zones[p.zone] = { minX: p.x, maxX: p.x, minY: p.y, maxY: p.y });
+    z.minX = Math.min(z.minX, p.x);
+    z.maxX = Math.max(z.maxX, p.x);
+    z.minY = Math.min(z.minY, p.y);
+    z.maxY = Math.max(z.maxY, p.y);
+  }
+  return zones;
+}
+
 function drawNodeWithTooltip(shapeEl, tooltipText) {
   const title = svgEl("title");
   title.textContent = tooltipText;
   shapeEl.appendChild(title);
   mapSvg.appendChild(shapeEl);
+}
+
+function ensureRouteArrowDef() {
+  const defs = svgEl("defs");
+  const marker = svgEl("marker", {
+    id: "route-arrowhead",
+    viewBox: "0 0 10 10",
+    refX: 7,
+    refY: 5,
+    markerWidth: 3,
+    markerHeight: 3,
+    orient: "auto-start-reverse",
+  });
+  marker.appendChild(svgEl("path", { d: "M0 0 L10 5 L0 10 Z", class: "map-route-arrowhead" }));
+  defs.appendChild(marker);
+  mapSvg.appendChild(defs);
 }
 
 function findSectionByName(name) {
@@ -290,6 +365,15 @@ function resolveOrigin(sectionId) {
   return venueData.sections.find((s) => s.id === sectionId) || venueData.gates[0];
 }
 
+/** "You are here" marker — a map-pin silhouette, tip anchored at (x, y), rather than a plain dot. */
+function renderOriginPin(x, y) {
+  const size = 2.2;
+  const pin = svgEl("svg", { x: x - size / 2, y: y - size, width: size, height: size, viewBox: "0 0 24 24" });
+  pin.appendChild(svgEl("path", { d: "M12 22s7-7.58 7-13a7 7 0 1 0-14 0c0 5.42 7 13 7 13Z", class: "map-origin-pin" }));
+  pin.appendChild(svgEl("circle", { cx: 12, cy: 9, r: 2.6, fill: "#fff" }));
+  mapSvg.appendChild(pin);
+}
+
 function renderRouteOverlay(sectionId, routeResult) {
   if (!routeResult.chosen) return;
 
@@ -298,9 +382,19 @@ function renderRouteOverlay(sectionId, routeResult) {
   const destination = isSeatRoute ? findSectionByName(routeResult.chosen.targetSection) || routeResult.chosen : routeResult.chosen;
   if (!origin || !destination) return;
 
-  mapSvg.appendChild(svgEl("line", { x1: origin.x, y1: origin.y, x2: destination.x, y2: destination.y, class: "map-route-line" }));
-  mapSvg.appendChild(svgEl("circle", { cx: origin.x, cy: origin.y, r: 1, class: "map-origin" }));
-  mapSvg.appendChild(svgEl("circle", { cx: destination.x, cy: destination.y, r: 2.2, class: "map-destination-ring" }));
+  mapSvg.appendChild(
+    svgEl("line", {
+      x1: origin.x,
+      y1: origin.y,
+      x2: destination.x,
+      y2: destination.y,
+      class: "map-route-line",
+      "marker-end": "url(#route-arrowhead)",
+    })
+  );
+
+  renderOriginPin(origin.x, origin.y);
+  mapSvg.appendChild(svgEl("circle", { cx: destination.x, cy: destination.y, r: 1.5, class: "map-destination-ring" }));
 }
 
 function renderMap() {
@@ -308,37 +402,81 @@ function renderMap() {
 
   mapSvg.setAttribute("viewBox", computeViewBox(venueData));
   mapSvg.textContent = ""; // clear previous render — safe (not parsing untrusted markup)
+  ensureRouteArrowDef();
+
+  const zoneRegions = computeZoneRegions(venueData);
+  for (const [zoneId, box] of Object.entries(zoneRegions)) {
+    const rect = svgEl("rect", {
+      x: box.minX - ZONE_PADDING,
+      y: box.minY - ZONE_PADDING,
+      width: box.maxX - box.minX + ZONE_PADDING * 2,
+      height: box.maxY - box.minY + ZONE_PADDING * 2,
+      rx: 3,
+      class: "map-zone-bg",
+      fill: densityColor(currentZones[zoneId]),
+      "fill-opacity": 0.14,
+    });
+    mapSvg.appendChild(rect);
+
+    const label = svgEl("text", { x: box.minX - ZONE_PADDING + 0.8, y: box.minY - ZONE_PADDING + 2, class: "map-zone-label" });
+    label.textContent = zoneId.replace("zone-", "zone ");
+    mapSvg.appendChild(label);
+  }
 
   for (const section of venueData.sections) {
-    const dot = svgEl("circle", { cx: section.x, cy: section.y, r: 1, fill: densityColor(currentZones[section.zone]), opacity: 0.5 });
+    const dot = svgEl("circle", { cx: section.x, cy: section.y, r: 0.6, class: "map-node", fill: densityColor(currentZones[section.zone]), opacity: 0.55 });
     drawNodeWithTooltip(dot, `${section.name} (${section.level})`);
   }
 
   for (const gate of venueData.gates) {
     const rect = svgEl("rect", {
-      x: gate.x - 0.9,
-      y: gate.y - 0.9,
-      width: 1.8,
-      height: 1.8,
+      x: gate.x - 0.85,
+      y: gate.y - 0.85,
+      width: 1.7,
+      height: 1.7,
+      rx: 0.35,
+      class: "map-node",
       fill: densityColor(currentZones[gate.zone]),
-      stroke: gate.stepFree ? "none" : "#000",
-      "stroke-width": gate.stepFree ? 0 : 0.3,
+      stroke: gate.stepFree ? "none" : "var(--color-danger)",
+      "stroke-width": gate.stepFree ? 0 : 0.25,
     });
     drawNodeWithTooltip(rect, `${gate.name}${gate.stepFree ? "" : " (not step-free)"}`);
+    mapSvg.appendChild(buildMarkerIcon("gate", gate.x, gate.y, 1.35));
 
-    const label = svgEl("text", { x: gate.x, y: gate.y - 1.3, "text-anchor": "middle", class: "map-label" });
+    const label = svgEl("text", { x: gate.x, y: gate.y - 1.25, "text-anchor": "middle", class: "map-label" });
     label.textContent = gate.name.replace("Gate ", "");
     mapSvg.appendChild(label);
   }
 
   for (const poi of venueData.pointsOfInterest) {
-    const circle = svgEl("circle", { cx: poi.x, cy: poi.y, r: 1.1, fill: densityColor(currentZones[poi.zone]), stroke: "#fff", "stroke-width": 0.15 });
+    const circle = svgEl("circle", { cx: poi.x, cy: poi.y, r: 0.85, class: "map-node", fill: densityColor(currentZones[poi.zone]), stroke: "#fff", "stroke-width": 0.12 });
     drawNodeWithTooltip(circle, poi.name);
-
-    const label = svgEl("text", { x: poi.x, y: poi.y, "text-anchor": "middle", "dominant-baseline": "central", class: "map-label", fill: "#fff" });
-    label.textContent = POI_ABBREVIATIONS[poi.type] || "?";
-    mapSvg.appendChild(label);
+    mapSvg.appendChild(buildMarkerIcon(poi.type, poi.x, poi.y, 1.15));
   }
 
   if (lastRoute) renderRouteOverlay(lastRoute.sectionId, lastRoute.routeResult);
+}
+
+function renderMapLegend() {
+  const legend = document.getElementById("map-legend");
+  legend.textContent = "";
+  for (const [type, label] of LEGEND_ITEMS) {
+    const item = document.createElement("span");
+    item.className = "map-legend__item";
+
+    const swatch = svgEl("svg", { viewBox: "0 0 24 24", class: "map-legend__swatch" });
+    swatch.setAttribute("aria-hidden", "true");
+    const bg = type === "gate" ? svgEl("rect", { x: 1, y: 1, width: 22, height: 22, rx: 5 }) : svgEl("circle", { cx: 12, cy: 12, r: 11 });
+    bg.style.fill = "var(--color-muted)";
+    swatch.appendChild(bg);
+    const group = svgEl("g", { fill: "none", stroke: "#fff", "stroke-width": 2.1, "stroke-linecap": "round", "stroke-linejoin": "round" });
+    for (const [tag, attrs] of MARKER_ICON_PARTS[type] || []) group.appendChild(svgEl(tag, attrs));
+    swatch.appendChild(group);
+
+    item.appendChild(swatch);
+    const text = document.createElement("span");
+    text.textContent = label;
+    item.appendChild(text);
+    legend.appendChild(item);
+  }
 }
