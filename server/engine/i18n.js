@@ -91,11 +91,23 @@ function format(template, vars) {
   return template.replace(/\{(\w+)\}/g, (_, key) => String(vars[key] ?? ""));
 }
 
-/** Qualitative distance description, localized — see module doc for why this isn't a unit-based measurement. */
+/**
+ * Buckets a raw grid distance into a qualitative tier. Exported (not just
+ * used internally) so llmClient.js can strip the raw number before it ever
+ * reaches the model — a bare "distance: 1.4" has no unit, and an LLM asked
+ * to phrase it will happily invent one ("140 meters"). Everything downstream
+ * of this function only ever sees a qualitative tier, never the raw number.
+ */
+export function distanceBucket(distanceValue) {
+  if (distanceValue < 3) return "veryClose";
+  if (distanceValue < 10) return "short";
+  return "far";
+}
+
+/** Qualitative distance description, localized. */
 function describeDistance(strings, distanceValue) {
-  if (distanceValue < 3) return strings.distanceVeryClose;
-  if (distanceValue < 10) return strings.distanceShort;
-  return strings.distanceFar;
+  const labelsByBucket = { veryClose: strings.distanceVeryClose, short: strings.distanceShort, far: strings.distanceFar };
+  return labelsByBucket[distanceBucket(distanceValue)];
 }
 
 /**

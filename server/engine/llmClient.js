@@ -11,13 +11,36 @@
  * deterministic i18n composer so the app never breaks for lack of a key.
  */
 
-import { composeOfflineMessage } from "./i18n.js";
+import { composeOfflineMessage, distanceBucket } from "./i18n.js";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const DEFAULT_MODEL = "anthropic/claude-3.5-haiku";
+const DEFAULT_MODEL = "anthropic/claude-haiku-4.5";
 const REQUEST_TIMEOUT_MS = 8000;
 
 const LANGUAGE_NAMES = { en: "English", es: "Spanish", fr: "French", pt: "Portuguese", ar: "Arabic" };
+const DISTANCE_DESCRIPTIONS = { veryClose: "very close by", short: "a short walk away", far: "a bit of a walk away" };
+
+/**
+ * Strips raw x/y coordinates and the unitless grid `distance` number out of
+ * a POI before it reaches the model, replacing distance with a qualitative
+ * description. A bare "distance: 1.4" has no unit — an LLM asked to phrase
+ * it will happily invent one ("140 meters"), which is exactly the kind of
+ * fabrication the system prompt otherwise forbids. crowdDensity is kept,
+ * since it's already an unambiguous percentage.
+ */
+function sanitizePoiForPrompt(poi) {
+  if (!poi) return poi;
+  const { x, y, distance, ...rest } = poi;
+  return distance === undefined ? rest : { ...rest, distanceDescription: DISTANCE_DESCRIPTIONS[distanceBucket(distance)] };
+}
+
+function sanitizeRouteResultForPrompt(routeResult) {
+  return {
+    ...routeResult,
+    chosen: sanitizePoiForPrompt(routeResult.chosen),
+    alternatives: (routeResult.alternatives || []).map(sanitizePoiForPrompt),
+  };
+}
 
 function buildSystemPrompt(language) {
   const languageName = LANGUAGE_NAMES[language] || "English";
@@ -27,6 +50,8 @@ function buildSystemPrompt(language) {
     "deterministic rules engine — your ONLY job is to phrase that decision as a warm, concise,",
     `plain-language reply IN ${languageName.toUpperCase()}. Rules:`,
     "- Never invent facilities, distances, or crowd data not present in the JSON.",
+    "- Distances are given as qualitative descriptions (e.g. \"a short walk away\"), never as a",
+    "  number of meters/feet/minutes — do not invent a unit or a specific figure.",
     "- Keep the reply under 60 words.",
     "- If the JSON shows an accessibility override (e.g. a nearer gate was skipped because it",
     "  wasn't step-free), briefly explain why, so the fan trusts the recommendation.",
@@ -64,14 +89,15 @@ export async function composeReply({ routeResult, query, language }) {
           { role: "system", content: buildSystemPrompt(language) },
           {
             role: "user",
-            content: `Fan's question: "${query}"\n\nRouting decision (JSON):\n${JSON.stringify(routeResult)}`,
+            content: `Fan's question: "${query}"\n\nRouting decision (JSON):\n${JSON.stringify(sanitizeRouteResultForPrompt(routeResult))}`,
           },
         ],
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`OpenRouter responded with status ${response.status}`);
+      const body = await response.text().catch(() => "");
+      throw new Error(`OpenRouter responded with status ${response.status}: ${body}`);
     }
 
     const data = await response.json();
@@ -80,8 +106,9 @@ export async function composeReply({ routeResult, query, language }) {
 
     return { message, source: "openrouter" };
   } catch (err) {
-    // Network error, timeout, non-2xx, or malformed response — degrade
-    // gracefully rather than surfacing a failure to the fan.
+    // Network error, timeout, non-2xx, or malformed response — log for
+    // operators (never surfaced to the fan) and degrade gracefully.
+    console.error("OpenRouter call failed, falling back to offline mode:", err.message);
     return { message: composeOfflineMessage(routeResult, language), source: "offline-fallback-error" };
   } finally {
     clearTimeout(timeout);
