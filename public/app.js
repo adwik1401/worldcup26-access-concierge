@@ -92,7 +92,7 @@ async function loadVenue() {
 
     renderMap();
     renderMapLegend();
-  } catch (err) {
+  } catch {
     sectionSelect.innerHTML = '<option value="">Could not load sections</option>';
   }
 }
@@ -104,7 +104,7 @@ async function loadScenarios() {
     currentZones = data.zones || {};
     renderScenarioButtons(data.scenarios, data.current);
     renderMap();
-  } catch (err) {
+  } catch {
     scenarioButtonsContainer.textContent = "Could not load crowd scenarios.";
   }
 }
@@ -133,7 +133,7 @@ async function switchScenario(key) {
     // Re-render from the server's confirmed current key rather than
     // trusting the click alone, so the UI can never drift from server state.
     loadScenarios();
-  } catch (err) {
+  } catch {
     // Non-fatal for a demo toggle — the previous scenario simply stays active.
   }
 }
@@ -186,7 +186,7 @@ async function handleQuerySubmit(event) {
       lastRoute = { sectionId: sectionSelect.value || undefined, routeResult: data.route };
       renderMap();
     }
-  } catch (err) {
+  } catch {
     removeMessage(pendingId);
     appendMessage({ role: "assistant", text: "Couldn't reach the concierge — please check your connection and try again." });
   }
@@ -316,12 +316,17 @@ function densityColor(density) {
   return `hsl(${hue}, 62%, 42%)`;
 }
 
+/** The white icon-outline <g> for a marker type — shared by both the map markers and the legend swatches. */
+function buildIconGroup(type) {
+  const group = svgEl("g", { fill: "none", stroke: "#fff", "stroke-width": 2.1, "stroke-linecap": "round", "stroke-linejoin": "round" });
+  for (const [tag, attrs] of MARKER_ICON_PARTS[type] || []) group.appendChild(svgEl(tag, attrs));
+  return group;
+}
+
 /** A small nested <svg> (own 24x24 viewBox) so icon geometry never has to fight the map's grid coordinate space. */
 function buildMarkerIcon(type, cx, cy, size) {
   const nested = svgEl("svg", { x: cx - size / 2, y: cy - size / 2, width: size, height: size, viewBox: "0 0 24 24" });
-  const group = svgEl("g", { fill: "none", stroke: "#fff", "stroke-width": 2.1, "stroke-linecap": "round", "stroke-linejoin": "round" });
-  for (const [tag, attrs] of MARKER_ICON_PARTS[type] || []) group.appendChild(svgEl(tag, attrs));
-  nested.appendChild(group);
+  nested.appendChild(buildIconGroup(type));
   return nested;
 }
 
@@ -509,9 +514,7 @@ function renderMapLegend() {
     const bg = type === "gate" ? svgEl("rect", { x: 1, y: 1, width: 22, height: 22, rx: 5 }) : svgEl("circle", { cx: 12, cy: 12, r: 11 });
     bg.style.fill = "var(--color-muted)";
     swatch.appendChild(bg);
-    const group = svgEl("g", { fill: "none", stroke: "#fff", "stroke-width": 2.1, "stroke-linecap": "round", "stroke-linejoin": "round" });
-    for (const [tag, attrs] of MARKER_ICON_PARTS[type] || []) group.appendChild(svgEl(tag, attrs));
-    swatch.appendChild(group);
+    swatch.appendChild(buildIconGroup(type));
 
     item.appendChild(swatch);
     const text = document.createElement("span");

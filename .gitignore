@@ -9,3 +9,6 @@ deno.lock
 
 # Internal planning workspace — not part of the public submission
 .claude/
+
+# Marketing assets (LinkedIn post screenshots) — not part of the app
+linkedin-post/

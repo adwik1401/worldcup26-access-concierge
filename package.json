@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "node --test \"tests/*.test.js\""
+    "test": "node --test \"tests/*.test.js\"",
+    "lint": "eslint ."
   },
   "license": "MIT",
   "engines": {
@@ -16,5 +17,9 @@
   "dependencies": {
     "express": "^4.21.2",
     "serverless-http": "^4.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.7.0"
   }
 }

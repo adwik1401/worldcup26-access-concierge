@@ -26,6 +26,20 @@ fans holding those scarce accessible tickets have far less slack if something go
 This concierge is the self-service, always-on layer for that gap. **It complements FIFA's official
 accessibility commitments — it does not replace human escorts or sign-language interpretation.**
 
+**A narrow persona, not a narrow build.** The vertical is deliberately one persona, but the product
+itself genuinely touches five of the brief's eight named domains, not just one:
+
+| Domain (from the brief) | Where it shows up |
+|---|---|
+| Navigation | The routing engine + stadium-bowl map are the core of the product |
+| Accessibility | The primary lens the whole tool is built through |
+| Multilingual assistance | 5 languages, fully offline-capable, not a bolted-on translation layer |
+| Crowd management | Live crowd-density scenarios directly drive routing decisions and are visualized on the map |
+| Real-time decision support | The "why this recommendation" panel + the deterministic-engine-then-GenAI-phrasing architecture *is* a real-time decision-support pattern — applied to a fan-facing case, not an operator dashboard |
+
+Transportation, sustainability, and operational intelligence are genuinely out of scope — that's the
+deliberate choice explained above, not an oversight.
+
 ## Approach and logic
 
 The core design decision is a **two-layer architecture**, so the actual routing *decision* is
@@ -75,10 +89,11 @@ npm start
 ```
 
 Then open `http://localhost:3000`. To run the automated tests (zero network, zero API key
-required):
+required) and the linter:
 
 ```bash
 npm test
+npm run lint
 ```
 
 **To enable live GenAI responses** instead of the offline fallback, get a free key at

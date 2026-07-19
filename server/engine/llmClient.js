@@ -30,7 +30,7 @@ const DISTANCE_DESCRIPTIONS = { veryClose: "very close by", short: "a short walk
  */
 function sanitizePoiForPrompt(poi) {
   if (!poi) return poi;
-  const { x, y, distance, ...rest } = poi;
+  const { x: _x, y: _y, distance, ...rest } = poi;
   return distance === undefined ? rest : { ...rest, distanceDescription: DISTANCE_DESCRIPTIONS[distanceBucket(distance)] };
 }
 
