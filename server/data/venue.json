@@ -2,31 +2,32 @@
   "venueName": "Liberty Field",
   "venueNote": "Fictional composite venue for demonstration purposes only — not a schematic of any real FIFA World Cup 2026 stadium.",
   "levels": ["Concourse", "Lower Bowl", "Upper Bowl"],
+  "layoutNote": "Coordinates are polar (angle around center, radius per ring) so the map renders as a stadium bowl. angleStart/angleEnd/ring on sections are rendering hints only — routingEngine.js only ever reads x/y/zone and never these fields.",
   "gates": [
-    { "id": "gate-a", "name": "Gate A", "x": 0, "y": 16, "zone": "zone-a", "stepFree": true },
-    { "id": "gate-b", "name": "Gate B", "x": 32, "y": 16, "zone": "zone-b", "stepFree": true },
-    { "id": "gate-c", "name": "Gate C", "x": 32, "y": -16, "zone": "zone-c", "stepFree": true },
-    { "id": "gate-d", "name": "Gate D", "x": 0, "y": -16, "zone": "zone-d", "stepFree": false }
+    { "id": "gate-a", "name": "Gate A", "x": 0, "y": -12.8, "zone": "zone-a", "stepFree": true },
+    { "id": "gate-b", "name": "Gate B", "x": 20.5, "y": 0, "zone": "zone-b", "stepFree": true },
+    { "id": "gate-c", "name": "Gate C", "x": 0, "y": 12.8, "zone": "zone-c", "stepFree": true },
+    { "id": "gate-d", "name": "Gate D", "x": -20.5, "y": 0, "zone": "zone-d", "stepFree": false }
   ],
   "sections": [
-    { "id": "sec-101", "name": "Section 101", "level": "Lower Bowl", "x": 3.2, "y": 12.8, "zone": "zone-a", "nearestGate": "gate-a" },
-    { "id": "sec-112", "name": "Section 112", "level": "Lower Bowl", "x": 28.8, "y": 12.8, "zone": "zone-b", "nearestGate": "gate-b" },
-    { "id": "sec-128", "name": "Section 128", "level": "Lower Bowl", "x": 28.8, "y": -12.8, "zone": "zone-c", "nearestGate": "gate-c" },
-    { "id": "sec-140", "name": "Section 140", "level": "Lower Bowl", "x": 3.2, "y": -12.8, "zone": "zone-d", "nearestGate": "gate-d" },
-    { "id": "sec-215", "name": "Section 215", "level": "Upper Bowl", "x": 16, "y": 9.6, "zone": "zone-a", "nearestGate": "gate-a" },
-    { "id": "sec-230", "name": "Section 230", "level": "Upper Bowl", "x": 16, "y": -9.6, "zone": "zone-c", "nearestGate": "gate-c" }
+    { "id": "sec-101", "name": "Section 101", "level": "Lower Bowl", "x": 0, "y": -6.7, "zone": "zone-a", "nearestGate": "gate-a", "ring": "lower", "angleStart": 230, "angleEnd": 310 },
+    { "id": "sec-215", "name": "Section 215", "level": "Upper Bowl", "x": 0, "y": -8.75, "zone": "zone-a", "nearestGate": "gate-a", "ring": "upper", "angleStart": 230, "angleEnd": 310 },
+    { "id": "sec-112", "name": "Section 112", "level": "Lower Bowl", "x": 10.75, "y": 0, "zone": "zone-b", "nearestGate": "gate-b", "ring": "lower", "angleStart": -40, "angleEnd": 40 },
+    { "id": "sec-128", "name": "Section 128", "level": "Lower Bowl", "x": 0, "y": 6.7, "zone": "zone-c", "nearestGate": "gate-c", "ring": "lower", "angleStart": 50, "angleEnd": 130 },
+    { "id": "sec-230", "name": "Section 230", "level": "Upper Bowl", "x": 0, "y": 8.75, "zone": "zone-c", "nearestGate": "gate-c", "ring": "upper", "angleStart": 50, "angleEnd": 130 },
+    { "id": "sec-140", "name": "Section 140", "level": "Lower Bowl", "x": -10.75, "y": 0, "zone": "zone-d", "nearestGate": "gate-d", "ring": "lower", "angleStart": 140, "angleEnd": 220 }
   ],
   "pointsOfInterest": [
-    { "id": "restroom-a-accessible", "type": "restroom", "name": "Accessible Restroom — Gate A Concourse", "x": 1.6, "y": 14.4, "zone": "zone-a", "stepFree": true, "accessible": true, "lowSensory": false },
-    { "id": "restroom-b-accessible", "type": "restroom", "name": "Accessible Restroom — Gate B Concourse", "x": 30.4, "y": 14.4, "zone": "zone-b", "stepFree": true, "accessible": true, "lowSensory": false },
-    { "id": "restroom-c-standard", "type": "restroom", "name": "Restroom — Gate C Concourse", "x": 30.4, "y": -14.4, "zone": "zone-c", "stepFree": false, "accessible": false, "lowSensory": false },
-    { "id": "family-restroom-d", "type": "restroom", "name": "Family / Companion Restroom — Gate D", "x": 1.6, "y": -14.4, "zone": "zone-d", "stepFree": true, "accessible": true, "lowSensory": false },
-    { "id": "elevator-north", "type": "elevator", "name": "North Elevator (Concourse ↔ Upper Bowl)", "x": 8, "y": 8, "zone": "zone-a", "stepFree": true, "accessible": true, "lowSensory": false },
-    { "id": "elevator-south", "type": "elevator", "name": "South Elevator (Concourse ↔ Upper Bowl)", "x": 8, "y": -8, "zone": "zone-d", "stepFree": true, "accessible": true, "lowSensory": false },
-    { "id": "medical-1", "type": "medical", "name": "Medical Point — Gate B", "x": 27.2, "y": 14.4, "zone": "zone-b", "stepFree": true, "accessible": true, "lowSensory": false },
-    { "id": "quiet-room-1", "type": "quiet_room", "name": "Sensory-Friendly Quiet Room — Gate D Concourse", "x": 4.8, "y": -16, "zone": "zone-d", "stepFree": true, "accessible": true, "lowSensory": true },
-    { "id": "info-desk-1", "type": "info_desk", "name": "Fan Guest Services Desk — Main Concourse", "x": 16, "y": 0, "zone": "zone-a", "stepFree": true, "accessible": true, "lowSensory": false },
-    { "id": "concession-1", "type": "concession", "name": "Concession Stand — Gate A Concourse", "x": 3.2, "y": 11.2, "zone": "zone-a", "stepFree": true, "accessible": true, "lowSensory": false },
-    { "id": "concession-2", "type": "concession", "name": "Concession Stand — Gate C Concourse", "x": 28.8, "y": -11.2, "zone": "zone-c", "stepFree": false, "accessible": false, "lowSensory": false }
+    { "id": "restroom-a-accessible", "type": "restroom", "name": "Accessible Restroom — North Concourse", "x": -7.61, "y": -10.24, "zone": "zone-a", "stepFree": true, "accessible": true, "lowSensory": false },
+    { "id": "elevator-north", "type": "elevator", "name": "North Elevator (Concourse ↔ Upper Bowl)", "x": -2.51, "y": -11.19, "zone": "zone-a", "stepFree": true, "accessible": true, "lowSensory": false },
+    { "id": "info-desk-1", "type": "info_desk", "name": "Fan Guest Services Desk — North Concourse", "x": 2.51, "y": -11.19, "zone": "zone-a", "stepFree": true, "accessible": true, "lowSensory": false },
+    { "id": "concession-1", "type": "concession", "name": "Concession Stand — North Concourse", "x": 7.61, "y": -10.24, "zone": "zone-a", "stepFree": true, "accessible": true, "lowSensory": false },
+    { "id": "restroom-b-accessible", "type": "restroom", "name": "Accessible Restroom — East Concourse", "x": 17.39, "y": -2.93, "zone": "zone-b", "stepFree": true, "accessible": true, "lowSensory": false },
+    { "id": "medical-1", "type": "medical", "name": "Medical Point — East Concourse", "x": 17.39, "y": 2.93, "zone": "zone-b", "stepFree": true, "accessible": true, "lowSensory": false },
+    { "id": "restroom-c-standard", "type": "restroom", "name": "Restroom — South Concourse", "x": 4.66, "y": 10.92, "zone": "zone-c", "stepFree": false, "accessible": false, "lowSensory": false },
+    { "id": "concession-2", "type": "concession", "name": "Concession Stand — South Concourse", "x": -4.66, "y": 10.92, "zone": "zone-c", "stepFree": false, "accessible": false, "lowSensory": false },
+    { "id": "family-restroom-d", "type": "restroom", "name": "Family / Companion Restroom — West Concourse", "x": -16.31, "y": 4.78, "zone": "zone-d", "stepFree": true, "accessible": true, "lowSensory": false },
+    { "id": "elevator-south", "type": "elevator", "name": "South Elevator (Concourse ↔ Upper Bowl)", "x": -18, "y": 0, "zone": "zone-d", "stepFree": true, "accessible": true, "lowSensory": false },
+    { "id": "quiet-room-1", "type": "quiet_room", "name": "Sensory-Friendly Quiet Room — West Concourse", "x": -16.31, "y": -4.78, "zone": "zone-d", "stepFree": true, "accessible": true, "lowSensory": true }
   ]
 }

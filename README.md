@@ -91,13 +91,14 @@ OpenRouter).
 - Toggle **high contrast** and text size (**A− / A+**) in the header — persisted across visits.
 - Switch **crowd scenarios** in the left panel and re-ask the same question to see the
   recommendation change.
-- A **live venue map** sits above the chat: each zone tints from clear to busy by its current
-  crowd density (the fastest way to read the venue at a glance), with every gate and point of
-  interest shown as a small hand-drawn icon, and your last route drawn as a dashed line with an
-  arrowhead from a "you are here" pin to a pulsing destination ring. It's a direct visualization of
-  the same coordinate data and crowd state the routing engine scores against — not a separate
-  system, so it can never show something the text reply doesn't already say. See *Why not AR /
-  live camera navigation* below for why this is a 2D map rather than a camera view.
+- A **live stadium-bowl map** sits above the chat: a pitch at the center with each stand (North /
+  East / South / West) drawn as a wedge that tints from clear to busy by its current crowd density
+  — the fastest way to read the venue at a glance — plus every gate and point of interest as a
+  small hand-drawn icon, and your last route drawn as a dashed arrow from a "you are here" pin to a
+  pulsing destination ring. It's a direct visualization of the same coordinate data and crowd state
+  the routing engine scores against — not a separate system, so it can never show something the
+  text reply doesn't already say. See *Why not AR / live camera navigation* below for why this is a
+  2D map rather than a camera view.
 
 ### Why not AR / live camera navigation
 

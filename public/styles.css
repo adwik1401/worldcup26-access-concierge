@@ -356,16 +356,26 @@ button:active {
   border-radius: var(--radius-md);
 }
 
-.map-zone-bg {
-  transition: fill 400ms var(--ease-out);
+.map-field {
+  fill: #8bad6f;
+  fill-opacity: 0.5;
 }
 
-.map-zone-label {
+.map-field-line {
+  fill: none;
+  stroke: #ffffff;
+  stroke-opacity: 0.6;
+  stroke-width: 0.12;
+}
+
+.map-compass-label {
   font-family: var(--font-mono);
-  font-size: 1.7px;
-  letter-spacing: 0.04em;
-  fill: var(--color-muted);
+  font-size: 1.6px;
+  letter-spacing: 0.06em;
+  fill: #ffffff;
+  fill-opacity: 0.75;
   text-transform: uppercase;
+  pointer-events: none;
 }
 
 .map-node {
@@ -378,6 +388,11 @@ button:active {
   font-size: 1.55px;
   fill: var(--color-text);
   pointer-events: none;
+}
+
+.map-label--on-wedge {
+  fill: #ffffff;
+  font-size: 1.7px;
 }
 
 .map-route-line {

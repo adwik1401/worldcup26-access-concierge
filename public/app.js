@@ -239,22 +239,38 @@ function removeMessage(id) {
 
 // ---- Venue map ----
 //
-// A top-down SVG map built from the same x/y grid the routing engine
-// scores against — not real cartography, just a visual echo of the data
-// already driving the recommendation. Every route drawn here is a
-// straight line between two points, the same simplification the engine
-// itself uses (see routingEngine.js's Euclidean `distance()`); it is not
-// a turn-by-turn walking path. Marked aria-hidden in the HTML because
-// every fact it conveys is already in the text reply above it — this is
-// a sighted-user convenience layer, not the primary accessible channel.
+// A stadium-bowl SVG map — field in the middle, section wedges arranged
+// radially around it, gates and points of interest on the outer
+// concourse — built from the same x/y coordinates the routing engine
+// scores against (see venue.json's polar layout). Every route drawn
+// here is a straight line between two points, the same simplification
+// the engine itself uses (routingEngine.js's Euclidean `distance()`);
+// it is not a turn-by-turn walking path. Marked aria-hidden in the HTML
+// because every fact it conveys is already in the text reply above it —
+// this is a sighted-user convenience layer, not the primary accessible
+// channel.
 //
-// Zone backgrounds are the bounding box of each zone's own member points
-// (padded), not a fabricated architectural boundary — the only shape we
-// can honestly derive from data we actually have.
+// Section wedge shapes come from angleStart/angleEnd/ring fields in
+// venue.json — rendering hints only. routingEngine.js never reads them;
+// it only ever uses x/y/zone, so this map layer can't influence routing.
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const MAP_PADDING = 5;
-const ZONE_PADDING = 3;
+const MAP_PADDING = 4;
+const FIELD_RX = 8;
+const FIELD_RY = 5;
+const RING_RADII = {
+  lower: { inner: { rx: 9, ry: 5.6 }, outer: { rx: 12.5, ry: 7.8 } },
+  upper: { inner: { rx: 12.5, ry: 7.8 }, outer: { rx: 15.5, ry: 9.7 } },
+};
+// Each zone's compass side and the angle (degrees) its gate sits at on the
+// bowl — declared directly rather than reverse-engineered from gate
+// coordinates, since this *is* the design (see venue.json's layoutNote).
+const ZONE_SIDES = {
+  "zone-a": { label: "North", angle: 270 },
+  "zone-b": { label: "East", angle: 0 },
+  "zone-c": { label: "South", angle: 90 },
+  "zone-d": { label: "West", angle: 180 },
+};
 
 // Hand-authored, single-stroke-width icon glyphs (24x24 viewBox) — no icon
 // library dependency, kept visually consistent with the icons used
@@ -310,6 +326,10 @@ function buildMarkerIcon(type, cx, cy, size) {
 }
 
 function computeViewBox(venue) {
+  // Gates sit on the outermost ring in this layout, so gate/section/POI
+  // point extents already bound the whole bowl (field + wedges nest
+  // entirely inside the gate ring) — no separate field/wedge geometry
+  // needs to factor into this.
   const points = [...venue.gates, ...venue.sections, ...venue.pointsOfInterest];
   const xs = points.map((p) => p.x);
   const ys = points.map((p) => p.y);
@@ -320,17 +340,26 @@ function computeViewBox(venue) {
   return `${minX} ${minY} ${width} ${height}`;
 }
 
-/** Bounding box of each zone's own points — the only zone "shape" derivable from real data, not an invented floor plan. */
-function computeZoneRegions(venue) {
-  const zones = {};
-  for (const p of [...venue.gates, ...venue.sections, ...venue.pointsOfInterest]) {
-    const z = zones[p.zone] || (zones[p.zone] = { minX: p.x, maxX: p.x, minY: p.y, maxY: p.y });
-    z.minX = Math.min(z.minX, p.x);
-    z.maxX = Math.max(z.maxX, p.x);
-    z.minY = Math.min(z.minY, p.y);
-    z.maxY = Math.max(z.maxY, p.y);
-  }
-  return zones;
+/** A point on an ellipse at the given angle (degrees; 0=East, 90=South, 180=West, 270=North — matches on-screen compass directions since SVG y grows downward). */
+function polarPoint(angleDeg, rx, ry) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return { x: rx * Math.cos(rad), y: ry * Math.sin(rad) };
+}
+
+/** SVG path for a donut-segment "stand" wedge between two concentric ellipses, from angleStart to angleEnd. */
+function wedgePath(inner, outer, angleStart, angleEnd) {
+  const largeArc = Math.abs(angleEnd - angleStart) > 180 ? 1 : 0;
+  const p1 = polarPoint(angleStart, outer.rx, outer.ry);
+  const p2 = polarPoint(angleEnd, outer.rx, outer.ry);
+  const p3 = polarPoint(angleEnd, inner.rx, inner.ry);
+  const p4 = polarPoint(angleStart, inner.rx, inner.ry);
+  return [
+    `M ${p1.x} ${p1.y}`,
+    `A ${outer.rx} ${outer.ry} 0 ${largeArc} 1 ${p2.x} ${p2.y}`,
+    `L ${p3.x} ${p3.y}`,
+    `A ${inner.rx} ${inner.ry} 0 ${largeArc} 0 ${p4.x} ${p4.y}`,
+    "Z",
+  ].join(" ");
 }
 
 function drawNodeWithTooltip(shapeEl, tooltipText) {
@@ -404,28 +433,39 @@ function renderMap() {
   mapSvg.textContent = ""; // clear previous render — safe (not parsing untrusted markup)
   ensureRouteArrowDef();
 
-  const zoneRegions = computeZoneRegions(venueData);
-  for (const [zoneId, box] of Object.entries(zoneRegions)) {
-    const rect = svgEl("rect", {
-      x: box.minX - ZONE_PADDING,
-      y: box.minY - ZONE_PADDING,
-      width: box.maxX - box.minX + ZONE_PADDING * 2,
-      height: box.maxY - box.minY + ZONE_PADDING * 2,
-      rx: 3,
-      class: "map-zone-bg",
-      fill: densityColor(currentZones[zoneId]),
-      "fill-opacity": 0.14,
-    });
-    mapSvg.appendChild(rect);
+  mapSvg.appendChild(svgEl("ellipse", { cx: 0, cy: 0, rx: FIELD_RX, ry: FIELD_RY, class: "map-field" }));
+  mapSvg.appendChild(svgEl("ellipse", { cx: 0, cy: 0, rx: FIELD_RX, ry: FIELD_RY, class: "map-field-line" }));
+  mapSvg.appendChild(svgEl("line", { x1: 0, y1: -FIELD_RY, x2: 0, y2: FIELD_RY, class: "map-field-line" }));
 
-    const label = svgEl("text", { x: box.minX - ZONE_PADDING + 0.8, y: box.minY - ZONE_PADDING + 2, class: "map-zone-label" });
-    label.textContent = zoneId.replace("zone-", "zone ");
+  for (const section of venueData.sections) {
+    const ring = RING_RADII[section.ring];
+    const wedge = svgEl("path", {
+      d: wedgePath(ring.inner, ring.outer, section.angleStart, section.angleEnd),
+      class: "map-node",
+      fill: densityColor(currentZones[section.zone]),
+      stroke: "var(--color-surface)",
+      "stroke-width": 0.12,
+    });
+    drawNodeWithTooltip(wedge, `${section.name} (${section.level}) — ${Math.round((currentZones[section.zone] ?? 0) * 100)}% capacity`);
+
+    const midAngle = (section.angleStart + section.angleEnd) / 2;
+    const midRadius = { rx: (ring.inner.rx + ring.outer.rx) / 2, ry: (ring.inner.ry + ring.outer.ry) / 2 };
+    const labelPos = polarPoint(midAngle, midRadius.rx, midRadius.ry);
+    const label = svgEl("text", { x: labelPos.x, y: labelPos.y, "text-anchor": "middle", "dominant-baseline": "central", class: "map-label map-label--on-wedge" });
+    label.textContent = section.name.replace("Section ", "");
     mapSvg.appendChild(label);
   }
 
-  for (const section of venueData.sections) {
-    const dot = svgEl("circle", { cx: section.x, cy: section.y, r: 0.6, class: "map-node", fill: densityColor(currentZones[section.zone]), opacity: 0.55 });
-    drawNodeWithTooltip(dot, `${section.name} (${section.level})`);
+  for (const { label: sideLabel, angle } of Object.values(ZONE_SIDES)) {
+    // Placed on the pitch itself (well inside the field ellipse), not
+    // between the field and the stands — the single-wedge East/West
+    // sides have no room out there without colliding with the section
+    // number label, since they (unlike North/South) have no second,
+    // farther-out upper-tier wedge to push that label further away.
+    const pos = polarPoint(angle, FIELD_RX * 0.55, FIELD_RY * 0.55);
+    const label = svgEl("text", { x: pos.x, y: pos.y, "text-anchor": "middle", "dominant-baseline": "central", class: "map-compass-label" });
+    label.textContent = sideLabel;
+    mapSvg.appendChild(label);
   }
 
   for (const gate of venueData.gates) {
