@@ -1,13 +1,17 @@
 /**
- * Loads the static mock venue/crowd data once at module init (small,
- * read-only JSON — no benefit to re-reading per request) and re-exports it
- * as plain objects for the rest of the app.
+ * Re-exports the static mock venue/crowd data as plain objects.
+ *
+ * Uses a direct ESM JSON import (Node's `with { type: "json" }` import
+ * attribute) rather than `readFileSync(dirname(fileURLToPath(import.meta.url)))`
+ * — that pattern breaks under Netlify's esbuild function bundler, which
+ * does not reliably preserve `import.meta.url` when bundling to a single
+ * file, so `fileURLToPath` receives `undefined` at runtime. A plain JSON
+ * import has no such problem: esbuild resolves and inlines the JSON at
+ * bundle time, and Node's native loader resolves it directly at runtime
+ * locally — both environments work from the same source with no
+ * environment-specific branching.
  */
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import venue from "./venue.json" with { type: "json" };
+import crowdScenarios from "./crowdScenarios.json" with { type: "json" };
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-export const venue = JSON.parse(readFileSync(join(__dirname, "venue.json"), "utf-8"));
-export const crowdScenarios = JSON.parse(readFileSync(join(__dirname, "crowdScenarios.json"), "utf-8"));
+export { venue, crowdScenarios };

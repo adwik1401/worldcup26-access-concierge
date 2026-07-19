@@ -3,6 +3,12 @@
 A GenAI accessibility & navigation concierge for fans at the FIFA World Cup 2026 — built for
 **Promptwars Challenge 4**.
 
+**Live demo:** https://worldcup26-access-concierge.netlify.app — deployed intentionally without a
+live `OPENROUTER_API_KEY`, so it runs in the offline multilingual fallback mode described below
+(no spendable API credential exposed on a public URL). Every feature is fully demonstrable this
+way; see [How the solution works](#how-the-solution-works) to run it locally with live GenAI
+responses instead.
+
 ## Chosen vertical
 
 **Fan Accessibility & Navigation Concierge.** The persona is a fan — specifically one with an
@@ -60,7 +66,7 @@ it and watch the concierge's recommendation (and its high-density warning) chang
 
 ## How the solution works
 
-**Requirements:** Node.js ≥ 18 (developed and tested on Node 24).
+**Requirements:** Node.js ≥ 20.10 (developed and tested on Node 24).
 
 ```bash
 npm install
@@ -133,7 +139,18 @@ server/
     crowdScenarios.json    three named crowd-density scenarios
 public/                 vanilla HTML/CSS/JS frontend — no framework, no build step
 tests/                  node:test suite (21 tests) for the engine and the API routes
+netlify/functions/api.js  wraps the same server/app.js via serverless-http for the live deploy
+netlify.toml             redirects /api/* to the function; publishes public/ as static
 ```
+
+**Deployment:** the live demo runs on Netlify — `netlify.toml` publishes `public/` as a static site
+and redirects `/api/*` to a single Netlify Function (`netlify/functions/api.js`) that wraps the
+exact same Express app `npm start` runs locally via `serverless-http`, so there's one source of
+truth for routes/validation, not a parallel implementation. One known tradeoff of serverless
+hosting: the crowd-scenario demo toggle (`crowdState.js`) is in-memory, which `npm start`
+guarantees persists (one long-lived process) but Netlify's serverless runtime only reliably shares
+across requests hitting the same warm function instance — fine for a demo session, not a real
+production guarantee.
 
 ## Assumptions
 

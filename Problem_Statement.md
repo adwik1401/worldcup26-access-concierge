@@ -1,3 +1,5 @@
+# Challenge 4: PromptWars — Stadium of the Future (GenAI for FIFA World Cup 2026)
+
 Build a GenAI-enabled solution that enhances stadium operations and the overall tournament experience for fans, organizers, volunteers, or venue staff. The solution must leverage Generative AI to improve navigation, crowd management, accessibility, transportation, sustainability, multilingual assistance, operational intelligence, or real-time decision support during the FIFA World Cup 2026.
 
 ## Instructions
@@ -74,3 +76,12 @@ Submissions will be reviewed on:
 | Efficiency | 🟡 Medium Impact | How well the code utilizes resources like time and memory. |
 | Testing | 🔵 Low Impact | How easily the code can be tested, validated, and maintained over time. |
 | Accessibility | 🔵 Low Impact | How usable the solution is for diverse users and environments. |
+
+### Actual Submission Form Fields (confirmed from the live submission portal)
+
+* **Challenges** — dropdown, this project is filed under `[Challenge 4] Smart Stadiums & Tournament Operations`
+* **Public GitHub Repo Link** — required
+* **Deployed Link** — required (a live, publicly reachable URL — not just a GitHub repo; the app must actually be hosted somewhere reachable by a browser)
+* **LinkedIn Post** — required (URL to a LinkedIn post about the submission; must include `https://` or `http://`)
+
+These weren't in the written instructions doc — the deployed-link and LinkedIn-post requirements were only discovered by looking at the actual submission form.

@@ -8,8 +8,6 @@ import { dirname, join } from "node:path";
 import venueRouter from "./routes/venue.js";
 import conciergeRouter from "./routes/concierge.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
 export function createApp() {
   const app = express();
 
@@ -19,7 +17,19 @@ export function createApp() {
 
   app.use("/api", venueRouter);
   app.use("/api", conciergeRouter);
-  app.use(express.static(join(__dirname, "..", "public")));
+
+  // Local dev only (`npm start`) — on Netlify, static files are served
+  // directly by the CDN (see netlify.toml's publish dir + /api/* redirect),
+  // so this bundled function never receives those requests. Guarded in a
+  // try/catch because Netlify's esbuild function bundler doesn't reliably
+  // preserve `import.meta.url`, and this only needs to work locally anyway.
+  try {
+    const publicDir = join(dirname(fileURLToPath(import.meta.url)), "..", "public");
+    app.use(express.static(publicDir));
+  } catch {
+    // Bundled serverless context — static assets are served by the
+    // platform, not through this Express app. Nothing to do here.
+  }
 
   return app;
 }

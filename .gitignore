@@ -3,5 +3,9 @@ node_modules/
 *.log
 .DS_Store
 
+# Netlify CLI local state (site linking cache) — machine-specific, not part of the app
+.netlify/
+deno.lock
+
 # Internal planning workspace — not part of the public submission
 .claude/
