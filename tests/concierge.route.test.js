@@ -6,19 +6,29 @@ import { createApp } from "../server/app.js";
 // suite is deterministic and never makes a real network call.
 delete process.env.OPENROUTER_API_KEY;
 
+/** @type {import("node:http").Server} */
 let server;
+/** @type {string} */
 let baseUrl;
 
 before(async () => {
   server = createApp().listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
-  baseUrl = `http://127.0.0.1:${server.address().port}`;
+  // .listen(0) + the "listening" event guarantees a bound TCP address, never
+  // the string form (that's only for Unix sockets) or null.
+  const address = /** @type {import("node:net").AddressInfo} */ (server.address());
+  baseUrl = `http://127.0.0.1:${address.port}`;
 });
 
 after(() => {
   server.close();
 });
 
+/**
+ * @param {string} path
+ * @param {object} body
+ * @returns {Promise<{ status: number, body: any }>}
+ */
 async function postJson(path, body) {
   const res = await fetch(`${baseUrl}${path}`, {
     method: "POST",
@@ -62,7 +72,7 @@ test("GET /api/scenarios lists scenarios with a current key", async () => {
   const res = await fetch(`${baseUrl}/api/scenarios`);
   const data = await res.json();
   assert.equal(res.status, 200);
-  assert.ok(data.scenarios.some((s) => s.key === "normal"));
+  assert.ok(data.scenarios.some((/** @type {{ key: string }} */ s) => s.key === "normal"));
   assert.ok(typeof data.current === "string");
 });
 

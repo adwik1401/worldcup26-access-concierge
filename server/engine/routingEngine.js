@@ -16,6 +16,7 @@
  * otherwise-specific query (e.g. "can you help me find my seat") and would
  * otherwise shadow the real intent if checked first.
  */
+/** @type {Array<[RouteIntent, string[]]>} */
 const INTENT_KEYWORDS = [
   ["restroom", ["restroom", "bathroom", "toilet", "washroom", "baño", "toilette"]],
   ["elevator", ["elevator", "lift", "stairs", "escalator", "ramp"]],
@@ -33,7 +34,7 @@ const INTENT_KEYWORDS = [
  * transparent rule-based approach is both cheaper and more auditable
  * than a model call for this step.
  * @param {string} queryText
- * @returns {string} one of the keys in INTENT_KEYWORDS, or "unknown"
+ * @returns {RouteIntent} one of the keys in INTENT_KEYWORDS, or "unknown"
  */
 export function detectIntent(queryText) {
   const text = (queryText || "").toLowerCase();
@@ -43,15 +44,21 @@ export function detectIntent(queryText) {
   return "unknown";
 }
 
-/** Euclidean distance between two {x,y} points on the venue's concourse grid. */
+/**
+ * Euclidean distance between two {x,y} points on the venue's concourse grid.
+ * @param {{x: number, y: number}} a
+ * @param {{x: number, y: number}} b
+ * @returns {number}
+ */
 export function distance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
 /**
  * Whether a point of interest satisfies the fan's stated accessibility needs.
- * @param {object} poi
- * @param {{ mobility?: boolean, sensorySensitivity?: boolean }} profile
+ * @param {PointOfInterest} poi
+ * @param {AccessibilityProfile} profile
+ * @returns {boolean}
  */
 export function meetsAccessibilityNeeds(poi, profile) {
   if (profile.mobility && !poi.stepFree) return false;
@@ -66,10 +73,11 @@ export function meetsAccessibilityNeeds(poi, profile) {
  * The penalty is weighted more heavily for mobility/sensory profiles,
  * for whom moving through a dense crowd is a bigger cost than for a
  * fan with no stated accessibility needs.
- * @param {object} poi
- * @param {{x:number,y:number}} origin
- * @param {Record<string, number>} crowdZones zone id -> density in [0,1]
- * @param {{ mobility?: boolean, sensorySensitivity?: boolean }} profile
+ * @param {PointOfInterest} poi
+ * @param {{x: number, y: number}} origin
+ * @param {CrowdZones} crowdZones zone id -> density in [0,1]
+ * @param {AccessibilityProfile} profile
+ * @returns {number}
  */
 export function scorePOI(poi, origin, crowdZones, profile) {
   const dist = distance(origin, poi);
@@ -83,7 +91,11 @@ export function scorePOI(poi, origin, crowdZones, profile) {
  * profile and origin. Returns best-to-worst order; entries that fail the
  * accessibility filter are excluded entirely rather than merely
  * deprioritized, since an inaccessible route is not a usable option.
- * @returns {Array<{ poi: object, score: number, distance: number, crowdDensity: number }>}
+ * @param {PointOfInterest[]} pois
+ * @param {{x: number, y: number}} origin
+ * @param {CrowdZones} crowdZones
+ * @param {AccessibilityProfile} profile
+ * @returns {RankedPoi[]}
  */
 export function rankPOIs(pois, origin, crowdZones, profile) {
   return pois
@@ -103,6 +115,10 @@ export function rankPOIs(pois, origin, crowdZones, profile) {
  * violate a stated accessibility need (e.g. a wheelchair user routed away
  * from a stairs-only gate). Returns the chosen gate plus a human-readable
  * rationale so the override (if any) is never silent.
+ * @param {Venue} venue
+ * @param {VenueSection} section
+ * @param {AccessibilityProfile} profile
+ * @returns {{ gate: Gate | undefined, rules: string[] }}
  */
 export function findGateForSection(venue, section, profile) {
   const candidateGates = profile.mobility
@@ -137,11 +153,12 @@ export function findGateForSection(venue, section, profile) {
  * phrase for the fan — the routing decision itself never touches an LLM.
  *
  * @param {object} args
- * @param {object} args.venue - parsed venue.json
- * @param {Record<string, number>} args.crowdZones - zone id -> density in [0,1]
- * @param {{ mobility?: boolean, visualImpairment?: boolean, hearingImpairment?: boolean, sensorySensitivity?: boolean }} args.profile
+ * @param {Venue} args.venue - parsed venue.json
+ * @param {CrowdZones} args.crowdZones - zone id -> density in [0,1]
+ * @param {AccessibilityProfile} args.profile
  * @param {string} args.query - fan's free-text question
  * @param {string} [args.sectionId] - fan's seat section, if known
+ * @returns {RouteResult}
  */
 export function findRoute({ venue, crowdZones, profile, query, sectionId }) {
   const intent = detectIntent(query);
@@ -185,8 +202,8 @@ export function findRoute({ venue, crowdZones, profile, query, sectionId }) {
 
   return {
     intent,
-    chosen: { type: best.poi.type, ...best.poi, distance: best.distance, crowdDensity: best.crowdDensity },
-    alternatives: rest.slice(0, 2).map((r) => ({ type: r.poi.type, ...r.poi, distance: r.distance, crowdDensity: r.crowdDensity })),
+    chosen: { ...best.poi, distance: best.distance, crowdDensity: best.crowdDensity },
+    alternatives: rest.slice(0, 2).map((r) => ({ ...r.poi, distance: r.distance, crowdDensity: r.crowdDensity })),
     appliedRules,
     crowdSnapshot: crowdZones,
   };

@@ -24,6 +24,12 @@ import { createApp } from "../../server/app.js";
 const expressHandler = serverless(createApp());
 const FUNCTION_PREFIX = "/.netlify/functions/api";
 
+/**
+ * @param {any} event - Netlify/Lambda-style event; `serverless-http` ships no
+ *   type declarations, and Netlify's own event shape isn't a good enough
+ *   reason to hand-roll or pull in an extra type-only dependency here
+ * @param {any} context
+ */
 export const handler = async (event, context) => {
   if (event.path.startsWith(FUNCTION_PREFIX)) {
     event.path = "/api" + event.path.slice(FUNCTION_PREFIX.length);

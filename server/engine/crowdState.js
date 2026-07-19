@@ -8,14 +8,17 @@ import { crowdScenarios } from "../data/index.js";
 
 let currentKey = "normal";
 
+/** @returns {string} the currently active scenario's key */
 export function getCurrentScenarioKey() {
   return currentKey;
 }
 
+/** @returns {CrowdZones} zone id -> density map for the currently active scenario */
 export function getCurrentScenarioZones() {
   return crowdScenarios[currentKey].zones;
 }
 
+/** @returns {Array<{ key: string, label: string, description: string }>} */
 export function listScenarios() {
   return Object.entries(crowdScenarios).map(([key, v]) => ({
     key,
@@ -24,7 +27,10 @@ export function listScenarios() {
   }));
 }
 
-/** @returns {boolean} whether `key` was a recognized scenario and was applied */
+/**
+ * @param {string} key
+ * @returns {boolean} whether `key` was a recognized scenario and was applied
+ */
 export function setScenario(key) {
   if (!crowdScenarios[key]) return false;
   currentKey = key;

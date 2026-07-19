@@ -7,25 +7,47 @@
 
 const RTL_LANGUAGES = new Set(["ar"]);
 
-const chatLog = document.getElementById("chat-log");
-const queryForm = document.getElementById("query-form");
-const queryInput = document.getElementById("query-input");
-const languageSelect = document.getElementById("language-select");
-const sectionSelect = document.getElementById("section-select");
-const scenarioButtonsContainer = document.getElementById("scenario-buttons");
-const contrastToggle = document.getElementById("contrast-toggle");
-const fontIncreaseButton = document.getElementById("font-increase");
-const fontDecreaseButton = document.getElementById("font-decrease");
-const mapSvg = document.getElementById("venue-map");
+/**
+ * Looks up a required DOM element by id, throwing immediately with a clear
+ * message if it's missing — fails loudly at page load if index.html and
+ * this script ever drift out of sync, instead of a cryptic "cannot read
+ * property of null" deep inside some later interaction handler. Also the
+ * single place that resolves TypeScript's `Element | null` return type from
+ * `getElementById`, rather than scattering null-checks/assertions below.
+ * @param {string} id
+ * @returns {HTMLElement}
+ */
+function requireEl(id) {
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`Expected #${id} to exist in the page`);
+  return el;
+}
+
+const chatLog = requireEl("chat-log");
+const queryForm = requireEl("query-form");
+const queryInput = /** @type {HTMLInputElement} */ (requireEl("query-input"));
+const languageSelect = /** @type {HTMLSelectElement} */ (requireEl("language-select"));
+const sectionSelect = /** @type {HTMLSelectElement} */ (requireEl("section-select"));
+const scenarioButtonsContainer = requireEl("scenario-buttons");
+const contrastToggle = requireEl("contrast-toggle");
+const fontIncreaseButton = requireEl("font-increase");
+const fontDecreaseButton = requireEl("font-decrease");
+// requireEl() returns HTMLElement — an <svg> is an SVGElement, a sibling
+// type with insufficient overlap for a direct cast, hence the `unknown`
+// step-through (this is the one non-HTML element requireEl() looks up).
+const mapSvg = /** @type {SVGSVGElement} */ (/** @type {unknown} */ (requireEl("venue-map")));
 
 // Full venue coordinate data and the current scenario's zone densities,
 // cached client-side once loaded so the map can be redrawn (on scenario
 // switch, on a new route) without a network round trip each time.
+/** @type {Venue | null} */
 let venueData = null;
+/** @type {CrowdZones} */
 let currentZones = {};
 // The most recent route drawn on the map, so a scenario switch (which
 // redraws the whole map for the new colors) can reapply it afterward
 // instead of losing the highlighted route.
+/** @type {{ sectionId: string | undefined, routeResult: RouteResult } | null} */
 let lastRoute = null;
 
 initDisplayPreferences();
@@ -58,17 +80,20 @@ function initDisplayPreferences() {
   fontDecreaseButton.addEventListener("click", () => adjustFontScale(-0.1));
 }
 
+/** @param {boolean} on */
 function applyContrast(on) {
   document.documentElement.classList.toggle("high-contrast", on);
   contrastToggle.setAttribute("aria-pressed", String(on));
 }
 
+/** @param {number} scale */
 function applyFontScale(scale) {
   const clamped = Math.min(1.6, Math.max(0.85, scale));
   document.documentElement.style.setProperty("--font-scale", String(clamped));
   localStorage.setItem("a11y-font-scale", String(clamped));
 }
 
+/** @param {number} delta */
 function adjustFontScale(delta) {
   const current = Number(getComputedStyle(document.documentElement).getPropertyValue("--font-scale")) || 1;
   applyFontScale(current + delta);
@@ -79,7 +104,7 @@ function adjustFontScale(delta) {
 async function loadVenue() {
   try {
     const res = await fetch("/api/venue");
-    const data = await res.json();
+    const data = /** @type {Venue} */ (await res.json());
     venueData = data;
 
     sectionSelect.innerHTML = "";
@@ -100,6 +125,7 @@ async function loadVenue() {
 async function loadScenarios() {
   try {
     const res = await fetch("/api/scenarios");
+    /** @type {{ current: string, zones: CrowdZones, scenarios: Array<{ key: string, label: string, description: string }> }} */
     const data = await res.json();
     currentZones = data.zones || {};
     renderScenarioButtons(data.scenarios, data.current);
@@ -109,6 +135,10 @@ async function loadScenarios() {
   }
 }
 
+/**
+ * @param {Array<{ key: string, label: string, description: string }>} scenarios
+ * @param {string} currentKey
+ */
 function renderScenarioButtons(scenarios, currentKey) {
   scenarioButtonsContainer.innerHTML = "";
   for (const scenario of scenarios) {
@@ -122,6 +152,7 @@ function renderScenarioButtons(scenarios, currentKey) {
   }
 }
 
+/** @param {string} key */
 async function switchScenario(key) {
   try {
     const res = await fetch("/api/scenario", {
@@ -140,10 +171,15 @@ async function switchScenario(key) {
 
 // ---- Chat ----
 
+/** @returns {string[]} */
 function getSelectedAccessibilityNeeds() {
-  return Array.from(document.querySelectorAll('input[name="accessibilityNeeds"]:checked')).map((el) => el.value);
+  const checked = /** @type {NodeListOf<HTMLInputElement>} */ (
+    document.querySelectorAll('input[name="accessibilityNeeds"]:checked')
+  );
+  return Array.from(checked).map((el) => el.value);
 }
 
+/** @param {SubmitEvent} event */
 async function handleQuerySubmit(event) {
   event.preventDefault();
   const query = queryInput.value.trim();
@@ -167,6 +203,7 @@ async function handleQuerySubmit(event) {
       }),
     });
 
+    /** @type {ConciergeReply & { route?: RouteResult, error?: string }} */
     const data = await res.json();
     removeMessage(pendingId);
 
@@ -194,6 +231,10 @@ async function handleQuerySubmit(event) {
 
 let messageCounter = 0;
 
+/**
+ * @param {AppendMessageArgs} args
+ * @returns {string} the new message element's id, for later removal (see removeMessage)
+ */
 function appendMessage({ role, text, pending, source, appliedRules }) {
   const id = `msg-${++messageCounter}`;
   const wrapper = document.createElement("div");
@@ -233,6 +274,7 @@ function appendMessage({ role, text, pending, source, appliedRules }) {
   return id;
 }
 
+/** @param {string} id */
 function removeMessage(id) {
   document.getElementById(id)?.remove();
 }
@@ -258,6 +300,7 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const MAP_PADDING = 4;
 const FIELD_RX = 8;
 const FIELD_RY = 5;
+/** @type {Record<"lower" | "upper", { inner: EllipseRadius, outer: EllipseRadius }>} */
 const RING_RADII = {
   lower: { inner: { rx: 9, ry: 5.6 }, outer: { rx: 12.5, ry: 7.8 } },
   upper: { inner: { rx: 12.5, ry: 7.8 }, outer: { rx: 15.5, ry: 9.7 } },
@@ -275,6 +318,7 @@ const ZONE_SIDES = {
 // Hand-authored, single-stroke-width icon glyphs (24x24 viewBox) — no icon
 // library dependency, kept visually consistent with the icons used
 // elsewhere in index.html.
+/** @type {IconPartsMap} */
 const MARKER_ICON_PARTS = {
   restroom: [
     ["circle", { cx: 12, cy: 6, r: 2.3 }],
@@ -294,6 +338,7 @@ const MARKER_ICON_PARTS = {
   gate: [["rect", { x: 6.5, y: 3.5, width: 11, height: 17, rx: 1 }]],
 };
 
+/** @type {Array<[PoiType | "gate", string]>} */
 const LEGEND_ITEMS = [
   ["gate", "Gate"],
   ["restroom", "Restroom"],
@@ -304,32 +349,56 @@ const LEGEND_ITEMS = [
   ["concession", "Concession"],
 ];
 
+/**
+ * @param {string} tag
+ * @param {Record<string, string | number>} [attrs]
+ * @returns {SVGElement}
+ */
 function svgEl(tag, attrs = {}) {
   const el = document.createElementNS(SVG_NS, tag);
-  for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+  for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value));
   return el;
 }
 
-/** Hue-only color scale (calm green -> amber -> red) for a 0..1 crowd density value. */
+/**
+ * Hue-only color scale (calm green -> amber -> red) for a 0..1 crowd density value.
+ * @param {number | undefined} density
+ * @returns {string}
+ */
 function densityColor(density) {
   const hue = Math.max(0, 130 - 130 * (density ?? 0));
   return `hsl(${hue}, 62%, 42%)`;
 }
 
-/** The white icon-outline <g> for a marker type — shared by both the map markers and the legend swatches. */
+/**
+ * The white icon-outline <g> for a marker type — shared by both the map markers and the legend swatches.
+ * @param {PoiType | "gate"} type
+ * @returns {SVGElement}
+ */
 function buildIconGroup(type) {
   const group = svgEl("g", { fill: "none", stroke: "#fff", "stroke-width": 2.1, "stroke-linecap": "round", "stroke-linejoin": "round" });
   for (const [tag, attrs] of MARKER_ICON_PARTS[type] || []) group.appendChild(svgEl(tag, attrs));
   return group;
 }
 
-/** A small nested <svg> (own 24x24 viewBox) so icon geometry never has to fight the map's grid coordinate space. */
+/**
+ * A small nested <svg> (own 24x24 viewBox) so icon geometry never has to fight the map's grid coordinate space.
+ * @param {PoiType | "gate"} type
+ * @param {number} cx
+ * @param {number} cy
+ * @param {number} size
+ * @returns {SVGElement}
+ */
 function buildMarkerIcon(type, cx, cy, size) {
   const nested = svgEl("svg", { x: cx - size / 2, y: cy - size / 2, width: size, height: size, viewBox: "0 0 24 24" });
   nested.appendChild(buildIconGroup(type));
   return nested;
 }
 
+/**
+ * @param {Venue} venue
+ * @returns {string} an SVG viewBox attribute value
+ */
 function computeViewBox(venue) {
   // Gates sit on the outermost ring in this layout, so gate/section/POI
   // point extents already bound the whole bowl (field + wedges nest
@@ -345,13 +414,26 @@ function computeViewBox(venue) {
   return `${minX} ${minY} ${width} ${height}`;
 }
 
-/** A point on an ellipse at the given angle (degrees; 0=East, 90=South, 180=West, 270=North — matches on-screen compass directions since SVG y grows downward). */
+/**
+ * A point on an ellipse at the given angle (degrees; 0=East, 90=South, 180=West, 270=North — matches on-screen compass directions since SVG y grows downward).
+ * @param {number} angleDeg
+ * @param {number} rx
+ * @param {number} ry
+ * @returns {{ x: number, y: number }}
+ */
 function polarPoint(angleDeg, rx, ry) {
   const rad = (angleDeg * Math.PI) / 180;
   return { x: rx * Math.cos(rad), y: ry * Math.sin(rad) };
 }
 
-/** SVG path for a donut-segment "stand" wedge between two concentric ellipses, from angleStart to angleEnd. */
+/**
+ * SVG path for a donut-segment "stand" wedge between two concentric ellipses, from angleStart to angleEnd.
+ * @param {EllipseRadius} inner
+ * @param {EllipseRadius} outer
+ * @param {number} angleStart
+ * @param {number} angleEnd
+ * @returns {string}
+ */
 function wedgePath(inner, outer, angleStart, angleEnd) {
   const largeArc = Math.abs(angleEnd - angleStart) > 180 ? 1 : 0;
   const p1 = polarPoint(angleStart, outer.rx, outer.ry);
@@ -367,6 +449,10 @@ function wedgePath(inner, outer, angleStart, angleEnd) {
   ].join(" ");
 }
 
+/**
+ * @param {SVGElement} shapeEl
+ * @param {string} tooltipText
+ */
 function drawNodeWithTooltip(shapeEl, tooltipText) {
   const title = svgEl("title");
   title.textContent = tooltipText;
@@ -390,16 +476,30 @@ function ensureRouteArrowDef() {
   mapSvg.appendChild(defs);
 }
 
-function findSectionByName(name) {
-  return venueData.sections.find((s) => s.name === name);
+/**
+ * @param {Venue} venue
+ * @param {string | undefined} name
+ * @returns {VenueSection | undefined}
+ */
+function findSectionByName(venue, name) {
+  return venue.sections.find((s) => s.name === name);
 }
 
-/** Mirrors the backend's own fallback in routingEngine.findRoute(): the fan's section if known, else the first gate. */
-function resolveOrigin(sectionId) {
-  return venueData.sections.find((s) => s.id === sectionId) || venueData.gates[0];
+/**
+ * Mirrors the backend's own fallback in routingEngine.findRoute(): the fan's section if known, else the first gate.
+ * @param {Venue} venue
+ * @param {string | undefined} sectionId
+ * @returns {VenueSection | Gate}
+ */
+function resolveOrigin(venue, sectionId) {
+  return venue.sections.find((s) => s.id === sectionId) || venue.gates[0];
 }
 
-/** "You are here" marker — a map-pin silhouette, tip anchored at (x, y), rather than a plain dot. */
+/**
+ * "You are here" marker — a map-pin silhouette, tip anchored at (x, y), rather than a plain dot.
+ * @param {number} x
+ * @param {number} y
+ */
 function renderOriginPin(x, y) {
   const size = 2.2;
   const pin = svgEl("svg", { x: x - size / 2, y: y - size, width: size, height: size, viewBox: "0 0 24 24" });
@@ -408,12 +508,17 @@ function renderOriginPin(x, y) {
   mapSvg.appendChild(pin);
 }
 
-function renderRouteOverlay(sectionId, routeResult) {
+/**
+ * @param {Venue} venue
+ * @param {string | undefined} sectionId
+ * @param {RouteResult} routeResult
+ */
+function renderRouteOverlay(venue, sectionId, routeResult) {
   if (!routeResult.chosen) return;
 
   const isSeatRoute = routeResult.intent === "seat";
-  const origin = isSeatRoute ? routeResult.chosen : resolveOrigin(sectionId);
-  const destination = isSeatRoute ? findSectionByName(routeResult.chosen.targetSection) || routeResult.chosen : routeResult.chosen;
+  const origin = isSeatRoute ? routeResult.chosen : resolveOrigin(venue, sectionId);
+  const destination = isSeatRoute ? findSectionByName(venue, routeResult.chosen.targetSection) || routeResult.chosen : routeResult.chosen;
   if (!origin || !destination) return;
 
   mapSvg.appendChild(
@@ -499,11 +604,11 @@ function renderMap() {
     mapSvg.appendChild(buildMarkerIcon(poi.type, poi.x, poi.y, 1.15));
   }
 
-  if (lastRoute) renderRouteOverlay(lastRoute.sectionId, lastRoute.routeResult);
+  if (lastRoute) renderRouteOverlay(venueData, lastRoute.sectionId, lastRoute.routeResult);
 }
 
 function renderMapLegend() {
-  const legend = document.getElementById("map-legend");
+  const legend = requireEl("map-legend");
   legend.textContent = "";
   for (const [type, label] of LEGEND_ITEMS) {
     const item = document.createElement("span");

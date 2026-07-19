@@ -17,7 +17,9 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL = "anthropic/claude-haiku-4.5";
 const REQUEST_TIMEOUT_MS = 8000;
 
+/** @type {Record<SupportedLanguage, string>} */
 const LANGUAGE_NAMES = { en: "English", es: "Spanish", fr: "French", pt: "Portuguese", ar: "Arabic" };
+/** @type {Record<DistanceBucket, string>} */
 const DISTANCE_DESCRIPTIONS = { veryClose: "very close by", short: "a short walk away", far: "a bit of a walk away" };
 
 /**
@@ -27,6 +29,8 @@ const DISTANCE_DESCRIPTIONS = { veryClose: "very close by", short: "a short walk
  * it will happily invent one ("140 meters"), which is exactly the kind of
  * fabrication the system prompt otherwise forbids. crowdDensity is kept,
  * since it's already an unambiguous percentage.
+ * @param {RouteChosen | null} poi
+ * @returns {(Omit<RouteChosen, "x" | "y" | "distance"> & { distanceDescription?: string }) | null}
  */
 function sanitizePoiForPrompt(poi) {
   if (!poi) return poi;
@@ -34,6 +38,10 @@ function sanitizePoiForPrompt(poi) {
   return distance === undefined ? rest : { ...rest, distanceDescription: DISTANCE_DESCRIPTIONS[distanceBucket(distance)] };
 }
 
+/**
+ * @param {RouteResult} routeResult
+ * @returns {object} a prompt-safe copy of routeResult (see sanitizePoiForPrompt)
+ */
 function sanitizeRouteResultForPrompt(routeResult) {
   return {
     ...routeResult,
@@ -42,8 +50,12 @@ function sanitizeRouteResultForPrompt(routeResult) {
   };
 }
 
+/**
+ * @param {string} language
+ * @returns {string}
+ */
 function buildSystemPrompt(language) {
-  const languageName = LANGUAGE_NAMES[language] || "English";
+  const languageName = LANGUAGE_NAMES[/** @type {SupportedLanguage} */ (language)] || "English";
   return [
     "You are an accessibility and navigation concierge for fans at a FIFA World Cup 2026 venue.",
     "You will be given a structured routing decision (JSON) that has already been computed by a",
@@ -63,7 +75,11 @@ function buildSystemPrompt(language) {
 /**
  * Compose a fan-facing reply for a routing-engine result. Always resolves
  * (never throws) — failures degrade to the offline path.
- * @returns {Promise<{ message: string, source: "openrouter" | "offline" | "offline-fallback-error" }>}
+ * @param {object} args
+ * @param {RouteResult} args.routeResult
+ * @param {string} args.query
+ * @param {string} args.language
+ * @returns {Promise<ConciergeReply>}
  */
 export async function composeReply({ routeResult, query, language }) {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -108,7 +124,9 @@ export async function composeReply({ routeResult, query, language }) {
   } catch (err) {
     // Network error, timeout, non-2xx, or malformed response — log for
     // operators (never surfaced to the fan) and degrade gracefully.
-    console.error("OpenRouter call failed, falling back to offline mode:", err.message);
+    // `err` is `unknown` under strict typing — Error is the expected shape,
+    // but stay safe against anything else a fetch/JSON call could throw.
+    console.error("OpenRouter call failed, falling back to offline mode:", err instanceof Error ? err.message : String(err));
     return { message: composeOfflineMessage(routeResult, language), source: "offline-fallback-error" };
   } finally {
     clearTimeout(timeout);

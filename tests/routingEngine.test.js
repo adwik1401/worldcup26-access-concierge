@@ -19,9 +19,22 @@ test("detectIntent matches known facility keywords", () => {
   assert.equal(detectIntent("asdkjhaskjdh"), "unknown");
 });
 
+/**
+ * meetsAccessibilityNeeds and scorePOI only ever read a handful of
+ * PointOfInterest fields (stepFree/type/lowSensory/x/y/zone) — these
+ * fixtures deliberately specify only what each test exercises, per usual
+ * test-double practice, then cast to the full type rather than padding
+ * every fixture with irrelevant id/name/accessible values.
+ * @param {Partial<PointOfInterest>} fields
+ * @returns {PointOfInterest}
+ */
+function mockPoi(fields) {
+  return /** @type {PointOfInterest} */ (fields);
+}
+
 test("meetsAccessibilityNeeds excludes non-step-free POIs for a mobility profile", () => {
-  const stepFreePoi = { stepFree: true, type: "restroom" };
-  const stairsOnlyPoi = { stepFree: false, type: "restroom" };
+  const stepFreePoi = mockPoi({ stepFree: true, type: "restroom" });
+  const stairsOnlyPoi = mockPoi({ stepFree: false, type: "restroom" });
   assert.equal(meetsAccessibilityNeeds(stepFreePoi, { mobility: true }), true);
   assert.equal(meetsAccessibilityNeeds(stairsOnlyPoi, { mobility: true }), false);
   // Without a mobility profile, a non-step-free POI is still a valid option.
@@ -29,8 +42,8 @@ test("meetsAccessibilityNeeds excludes non-step-free POIs for a mobility profile
 });
 
 test("meetsAccessibilityNeeds requires lowSensory quiet rooms for sensory-sensitivity profile", () => {
-  const quietLowSensory = { type: "quiet_room", lowSensory: true, stepFree: true };
-  const quietNotLowSensory = { type: "quiet_room", lowSensory: false, stepFree: true };
+  const quietLowSensory = mockPoi({ type: "quiet_room", lowSensory: true, stepFree: true });
+  const quietNotLowSensory = mockPoi({ type: "quiet_room", lowSensory: false, stepFree: true });
   assert.equal(meetsAccessibilityNeeds(quietLowSensory, { sensorySensitivity: true }), true);
   assert.equal(meetsAccessibilityNeeds(quietNotLowSensory, { sensorySensitivity: true }), false);
 });
@@ -41,7 +54,7 @@ test("distance is symmetric Euclidean distance", () => {
 });
 
 test("scorePOI penalizes crowd density more heavily for a mobility profile than a general one", () => {
-  const poi = { x: 10, y: 0, zone: "zone-a" };
+  const poi = mockPoi({ x: 10, y: 0, zone: "zone-a" });
   const origin = { x: 0, y: 0 };
   const crowdZones = { "zone-a": 0.9 };
 
@@ -55,9 +68,9 @@ test("rankPOIs excludes inaccessible POIs and sorts by score ascending", () => {
   const origin = { x: 0, y: 0 };
   const crowdZones = { "zone-a": 0, "zone-b": 0 };
   const pois = [
-    { id: "far-empty", type: "restroom", x: 20, y: 0, zone: "zone-b", stepFree: true },
-    { id: "near-empty", type: "restroom", x: 1, y: 0, zone: "zone-a", stepFree: true },
-    { id: "near-not-stepfree", type: "restroom", x: 0.5, y: 0, zone: "zone-a", stepFree: false },
+    mockPoi({ id: "far-empty", type: "restroom", x: 20, y: 0, zone: "zone-b", stepFree: true }),
+    mockPoi({ id: "near-empty", type: "restroom", x: 1, y: 0, zone: "zone-a", stepFree: true }),
+    mockPoi({ id: "near-not-stepfree", type: "restroom", x: 0.5, y: 0, zone: "zone-a", stepFree: false }),
   ];
 
   const ranked = rankPOIs(pois, origin, crowdZones, { mobility: true });
@@ -68,8 +81,10 @@ test("rankPOIs excludes inaccessible POIs and sorts by score ascending", () => {
 
 test("findGateForSection routes a mobility profile away from a non-step-free nearest gate", () => {
   const section = venue.sections.find((s) => s.id === "sec-140"); // nearest gate is gate-d, which is not step-free
+  assert.ok(section, "fixture venue must have a sec-140 section");
   const { gate, rules } = findGateForSection(venue, section, { mobility: true });
 
+  assert.ok(gate, "a step-free gate must be found");
   assert.notEqual(gate.id, "gate-d");
   assert.equal(gate.stepFree, true);
   assert.ok(rules.some((r) => r.includes("not step-free")));
@@ -77,7 +92,9 @@ test("findGateForSection routes a mobility profile away from a non-step-free nea
 
 test("findGateForSection uses the nearest gate outright when there's no mobility constraint", () => {
   const section = venue.sections.find((s) => s.id === "sec-140");
+  assert.ok(section, "fixture venue must have a sec-140 section");
   const { gate } = findGateForSection(venue, section, {});
+  assert.ok(gate);
   assert.equal(gate.id, "gate-d");
 });
 
@@ -93,7 +110,7 @@ test("findRoute flags a high-density recommendation and offers alternatives", ()
   assert.equal(result.intent, "restroom");
   assert.ok(result.chosen);
   assert.equal(result.chosen.stepFree, true);
-  assert.ok(result.chosen.crowdDensity >= 0.7);
+  assert.ok(result.chosen.crowdDensity !== undefined && result.chosen.crowdDensity >= 0.7);
   assert.ok(result.appliedRules.some((r) => r.includes("high-density")));
   assert.ok(result.alternatives.length > 0);
 });
@@ -108,6 +125,7 @@ test("findRoute falls back to info_desk for an unrecognized query", () => {
   });
 
   assert.equal(result.intent, "unknown");
+  assert.ok(result.chosen);
   assert.equal(result.chosen.type, "info_desk");
 });
 

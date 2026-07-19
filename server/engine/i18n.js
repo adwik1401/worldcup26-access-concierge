@@ -13,8 +13,10 @@
  * illustrative layout, not a calibrated real-world floor plan.
  */
 
+/** @type {SupportedLanguage[]} */
 export const SUPPORTED_LANGUAGES = ["en", "es", "fr", "pt", "ar"];
 
+/** @type {Record<SupportedLanguage, FacilityLabels>} */
 const FACILITY_LABELS = {
   en: { restroom: "accessible restroom", elevator: "elevator", medical: "medical point", quiet_room: "quiet room", info_desk: "guest services desk", concession: "concession stand" },
   es: { restroom: "baño accesible", elevator: "ascensor", medical: "punto médico", quiet_room: "sala tranquila", info_desk: "mostrador de atención", concession: "puesto de comida" },
@@ -23,6 +25,7 @@ const FACILITY_LABELS = {
   ar: { restroom: "دورة مياه لذوي الاحتياجات الخاصة", elevator: "مصعد", medical: "نقطة طبية", quiet_room: "غرفة هادئة", info_desk: "مكتب خدمة الزوار", concession: "كشك مأكولات" },
 };
 
+/** @type {Record<SupportedLanguage, LocalizedStrings>} */
 const T = {
   en: {
     distanceVeryClose: "very close by",
@@ -86,7 +89,12 @@ const T = {
   },
 };
 
-/** Fill `{token}` placeholders in a template string with values from `vars`. */
+/**
+ * Fill `{token}` placeholders in a template string with values from `vars`.
+ * @param {string} template
+ * @param {Record<string, string | number>} vars
+ * @returns {string}
+ */
 function format(template, vars) {
   return template.replace(/\{(\w+)\}/g, (_, key) => String(vars[key] ?? ""));
 }
@@ -97,6 +105,8 @@ function format(template, vars) {
  * reaches the model — a bare "distance: 1.4" has no unit, and an LLM asked
  * to phrase it will happily invent one ("140 meters"). Everything downstream
  * of this function only ever sees a qualitative tier, never the raw number.
+ * @param {number} distanceValue
+ * @returns {DistanceBucket}
  */
 export function distanceBucket(distanceValue) {
   if (distanceValue < 3) return "veryClose";
@@ -104,7 +114,12 @@ export function distanceBucket(distanceValue) {
   return "far";
 }
 
-/** Qualitative distance description, localized. */
+/**
+ * Qualitative distance description, localized.
+ * @param {LocalizedStrings} strings
+ * @param {number} distanceValue
+ * @returns {string}
+ */
 function describeDistance(strings, distanceValue) {
   const labelsByBucket = { veryClose: strings.distanceVeryClose, short: strings.distanceShort, far: strings.distanceFar };
   return labelsByBucket[distanceBucket(distanceValue)];
@@ -113,16 +128,22 @@ function describeDistance(strings, distanceValue) {
 /**
  * Compose a fully offline, localized reply from a routingEngine.findRoute()
  * result. `language` falls back to English if unsupported.
+ * @param {RouteResult} routeResult
+ * @param {string} language
+ * @returns {string}
  */
 export function composeOfflineMessage(routeResult, language) {
-  const lang = SUPPORTED_LANGUAGES.includes(language) ? language : "en";
+  // Cast justified by the runtime check on the same line: SUPPORTED_LANGUAGES.includes()
+  // (against the broader `string[]` view below) confirms the invariant before we rely on it.
+  const isSupported = /** @type {string[]} */ (SUPPORTED_LANGUAGES).includes(language);
+  const lang = /** @type {SupportedLanguage} */ (isSupported ? language : "en");
   const strings = T[lang];
   const labels = FACILITY_LABELS[lang];
 
   if (routeResult.intent === "seat") {
     if (!routeResult.chosen) return strings.gateNotFound;
     const gate = routeResult.chosen;
-    let message = format(strings.gateFound, { gate: gate.name, section: gate.targetSection });
+    let message = format(strings.gateFound, { gate: gate.name, section: gate.targetSection ?? "" });
     const overrideRule = routeResult.appliedRules.find((r) => r.includes("routed to"));
     if (overrideRule) {
       // Structured override detection: the engine only produces this specific
@@ -138,18 +159,29 @@ export function composeOfflineMessage(routeResult, language) {
   }
 
   if (!routeResult.chosen) {
-    const facility = labels[routeResult.intent] || labels.info_desk;
+    // routeResult.intent is narrowed to PoiType | "unknown" here (the "seat"
+    // case already returned above); FACILITY_LABELS only defines PoiType
+    // keys, so an "unknown" intent falls through to the info_desk default.
+    const facility = labels[/** @type {PoiType} */ (routeResult.intent)] || labels.info_desk;
     return format(strings.poiNotFound, { facility });
   }
 
   const poi = routeResult.chosen;
+  // distance/crowdDensity are optional on RouteChosen in general (a "seat"
+  // result has neither), but always present on a non-seat `chosen` — this
+  // branch's own construction in routingEngine.js guarantees it. Defaulted
+  // rather than asserted, so a future change that violates that invariant
+  // degrades gracefully instead of throwing.
+  const poiDistance = poi.distance ?? 0;
+  const poiCrowdDensity = poi.crowdDensity ?? 0;
+
   let message = format(strings.poiFound, {
     name: poi.name,
-    distanceDesc: describeDistance(strings, poi.distance),
+    distanceDesc: describeDistance(strings, poiDistance),
   });
 
-  if (poi.crowdDensity >= 0.7) {
-    message += format(strings.crowdWarning, { pct: Math.round(poi.crowdDensity * 100) });
+  if (poiCrowdDensity >= 0.7) {
+    message += format(strings.crowdWarning, { pct: Math.round(poiCrowdDensity * 100) });
   }
 
   if (routeResult.alternatives.length > 0) {

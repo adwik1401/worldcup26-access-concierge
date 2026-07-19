@@ -40,6 +40,17 @@ itself genuinely touches five of the brief's eight named domains, not just one:
 Transportation, sustainability, and operational intelligence are genuinely out of scope — that's the
 deliberate choice explained above, not an oversight.
 
+### Meeting the challenge's own expectations
+
+The brief asks for four specific things. Concretely, not just as a pitch:
+
+| Expectation (brief's own words) | How this build meets it |
+|---|---|
+| "Ability to build a smart, dynamic assistant" | The concierge re-plans live: switch a crowd scenario and re-ask the same question — [`server/engine/routingEngine.js`](server/engine/routingEngine.js)'s `findRoute()` recomputes the recommendation from current density data, and the stadium-bowl map redraws to match, in the fan's own language |
+| "Logical decision making based on user context" | [`meetsAccessibilityNeeds()`](server/engine/routingEngine.js), `scorePOI()`, and `findGateForSection()` filter and rank purely on the fan's stated profile (mobility/sensory needs) and live crowd data — and every decision ships with a visible, plain-language rationale (the "Why this recommendation" panel), not a black box |
+| "Practical and real-world usability" | Fully functional with zero setup cost (no API key required — see the offline fallback below), accessible by design (keyboard nav, ARIA, high-contrast mode, adjustable text size), and grounded in a real, cited accessibility gap (FIFA's own 2026 commitments, see below) rather than a hypothetical one |
+| "Clean and maintainable code" | 21 automated tests, ESLint with zero findings, and full static type-checking via JSDoc + `tsconfig.json`'s `checkJs` (`npm run typecheck`) — real type safety with no build step, no framework, and a strict separation between the deterministic decision layer and the GenAI phrasing layer |
+
 ## Approach and logic
 
 The core design decision is a **two-layer architecture**, so the actual routing *decision* is
@@ -89,11 +100,12 @@ npm start
 ```
 
 Then open `http://localhost:3000`. To run the automated tests (zero network, zero API key
-required) and the linter:
+required), the linter, and the type checker:
 
 ```bash
 npm test
 npm run lint
+npm run typecheck
 ```
 
 **To enable live GenAI responses** instead of the offline fallback, get a free key at
@@ -156,6 +168,9 @@ public/                 vanilla HTML/CSS/JS frontend — no framework, no build 
 tests/                  node:test suite (21 tests) for the engine and the API routes
 netlify/functions/api.js  wraps the same server/app.js via serverless-http for the live deploy
 netlify.toml             redirects /api/* to the function; publishes public/ as static
+types.d.ts               shared ambient JSDoc types (Venue, RouteResult, etc.) for `npm run typecheck`
+tsconfig.json            checkJs config — static type-checking with zero build step
+eslint.config.js         lint config — `npm run lint`
 ```
 
 **Deployment:** the live demo runs on Netlify — `netlify.toml` publishes `public/` as a static site
